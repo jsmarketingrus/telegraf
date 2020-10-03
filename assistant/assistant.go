@@ -37,9 +37,8 @@ func (a *Assistant) Run(ctx context.Context) error {
 		log.Fatal(err)
 	}
 
-	// TODO:
-
 	for {
+		// TODO: Figure out keep alive handler function type thing instead
 		time.Sleep(2 * time.Second)
 		ws.Write([]byte("The websocket is still connected!\n"))
 	}

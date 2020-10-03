@@ -13,7 +13,8 @@ func handleMessage(conn *websocket.Conn) {
 	var n int
 	var err error
 
-	// TODO: Figure out if there is a better way than infinite loop
+	// TODO: Figure out if there is a better way to persistently handle incoming
+	// ! messages than running an infinite loop!
 	for {
 		if n, err = conn.Read(msg); err != nil {
 			log.Fatal(err)
