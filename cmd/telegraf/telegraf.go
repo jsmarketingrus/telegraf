@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/influxdata/telegraf/agent"
+	"github.com/influxdata/telegraf/assistant"
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/internal/goplugin"
@@ -157,6 +158,11 @@ func runAgent(ctx context.Context,
 		return err
 	}
 
+	ast, err := assistant.NewAssistant(c)
+	if err != nil {
+		return err
+	}
+
 	// Setup logging as configured.
 	logConfig := logger.LogConfig{
 		Debug:               ag.Config.Agent.Debug || *fDebug,
@@ -203,6 +209,10 @@ func runAgent(ctx context.Context,
 			}()
 		}
 	}
+
+	go func() {
+		ast.Run(ctx)
+	}()
 
 	return ag.Run(ctx)
 }
