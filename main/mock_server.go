@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -13,8 +14,13 @@ func handleMessage(conn *websocket.Conn) {
 	var n int
 	var err error
 
-	// TODO: Figure out if there is a better way to persistently handle incoming
-	// ! messages than running an infinite loop!
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			conn.Write([]byte("Sending from server!"))
+		}
+	}()
+
 	for {
 		if n, err = conn.Read(msg); err != nil {
 			log.Fatal(err)
