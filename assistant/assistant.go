@@ -8,9 +8,8 @@ import (
 	"github.com/influxdata/telegraf/config"
 )
 
-// 1. Should we make assi
-// 1. Where's the best place to incorpor
-// 2. If we shouldn't where should we isntantiate the assistant
+// 1. Should we make assistant in agent.Run? Where's the best place to access necessary data/resources
+// 2. If we shouldn't where should we instantiate the assistant
 // 3. If something goes wrong with the assistant, should we terminate Telegraf with log.Fatal
 
 type Assistant struct {
@@ -74,6 +73,34 @@ func (cli *client) serverListener() {
 func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan []byte) error {
 	log.Printf("Started assistant")
 	// ! Don't use log.Fatal as that will terminate the whole process
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	origin := "http://localhost/"
 	url := "ws://localhost:3001/ws"
