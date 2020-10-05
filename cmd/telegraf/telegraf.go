@@ -210,16 +210,17 @@ func runAgent(ctx context.Context,
 		}
 	}
 
-	agentChannel := make(chan []byte, 512)
+	fromAgent := make(chan []byte, 512)
+	toAgent := make(chan []byte, 512)
 
 	go func() {
-		ast.Run(ctx, agentChannel)
+		ast.Run(ctx, fromAgent, toAgent)
 	}()
 
 	go func() {
 		for {
 			time.Sleep(2 * time.Second)
-			agentChannel <- ([]byte("sending from agent"))
+			fromAgent <- ([]byte("Inputs: " + strings.Join(c.InputNames(), " ")))
 		}
 
 	}()
