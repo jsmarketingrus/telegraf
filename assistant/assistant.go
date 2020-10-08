@@ -81,24 +81,24 @@ func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan
 
 	origin := "http://localhost/"
 	url := "ws://localhost:3001/ws"
-	ws, err := websocket.Dial(url, origin)
+	ws, err := websocket.Dial(url, "", origin)
+
+	cli := client{ServerConn: ws, FromAgent: fromAgent, ToAgent: toAgent, Ctx: ctx}
+
+	defer func() {
+		cli.ServerConn.Close()
+		close(cli.ToAgent)
+		close(cli.FromAgent)
+	}()
 
 	if err != nil {
 		// TODO find a mechanism to retry connection or alert the agent
 		log.Fatal(err)
 	}
-	cli := client{ServerConn: ws, FromAgent: fromAgent, ToAgent: toAgent, Ctx: ctx}
 
 	go cli.agentListener()
 	go cli.serverListener()
 
-	for {
-		select {
-		case <-cli.Ctx.Done():
-			cli.ServerConn.Close()
-			close(cli.ToAgent)
-			close(cli.FromAgent)
-			return nil
-		}
-	}
+	<-cli.Ctx.Done()
+	return nil
 }
