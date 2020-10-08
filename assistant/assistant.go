@@ -73,35 +73,7 @@ func (cli *client) serverListener() {
 func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan []byte) error {
 	log.Printf("Started assistant")
 	// ! Don't use log.Fatal as that will terminate the whole process
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	
 	origin := "http://localhost/"
 	url := "ws://localhost:3001/ws"
 	ws, err := websocket.Dial(url, "", origin)
