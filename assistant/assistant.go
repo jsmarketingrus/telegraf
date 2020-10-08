@@ -63,7 +63,7 @@ func (cli *client) serverListener() {
 			log.Fatal(err)
 			break
 		}
-		fmt.Printf("Assistant received: \"%s\" from server.\n", msg[:n])
+		fmt.Printf("Assistant received: \"%s\" from server.\n", msg[:bytesRead])
 		select {
 		// TODO ensure that this message is handled and actually returns
 		case <-cli.Ctx.Done():
@@ -77,7 +77,7 @@ func (cli *client) serverListener() {
 // Run is the main function that connects to the cloud server via websocket and
 // starts the Telegraf assistant's listeners.
 func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan []byte) error {
-	log.Printf("Started assistant")
+	log.Printf("Starting assistant")
 
 	origin := "http://localhost/"
 	url := "ws://localhost:3001/ws"
