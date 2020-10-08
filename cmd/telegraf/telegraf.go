@@ -158,11 +158,6 @@ func runAgent(ctx context.Context,
 		return err
 	}
 
-	ast, err := assistant.NewAssistant(c)
-	if err != nil {
-		return err
-	}
-
 	// Setup logging as configured.
 	logConfig := logger.LogConfig{
 		Debug:               ag.Config.Agent.Debug || *fDebug,
@@ -210,6 +205,11 @@ func runAgent(ctx context.Context,
 		}
 	}
 
+	ast, err := assistant.NewAssistant(c)
+	if err != nil {
+		return err
+	}
+
 	fromAgent := make(chan []byte, 512)
 	toAgent := make(chan []byte, 512)
 
@@ -217,6 +217,7 @@ func runAgent(ctx context.Context,
 		ast.Run(ctx, fromAgent, toAgent)
 	}()
 
+	// ! Code to test writing messages to server. Delete later.
 	go func() {
 		for {
 			time.Sleep(2 * time.Second)
