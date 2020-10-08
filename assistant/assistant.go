@@ -54,13 +54,12 @@ func (cli *client) agentListener() {
 // serverListener relays messages from the cloud server to the agent channel.
 func (cli *client) serverListener() {
 	var msg = make([]byte, 512)
-	var n int
-	var err error
 
 	for {
 		// Block on ServerConn.Read until a message is sent.
 		// Cannot put into a `select` statement because it is not a channel.
-		if n, err = cli.ServerConn.Read(msg); err != nil {
+		bytesRead, err := cli.ServerConn.Read(msg)
+		if err != nil {
 			log.Fatal(err)
 			break
 		}
@@ -69,7 +68,7 @@ func (cli *client) serverListener() {
 		// TODO ensure that this message is handled and actually returns
 		case <-cli.Ctx.Done():
 			return
-		case cli.ToAgent <- msg[:n]:
+		case cli.ToAgent <- msg[:bytesRead]:
 			continue
 		}
 	}
@@ -82,7 +81,7 @@ func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan
 
 	origin := "http://localhost/"
 	url := "ws://localhost:3001/ws"
-	ws, err := websocket.Dial(url, "", origin)
+	ws, err := websocket.Dial(url, origin)
 
 	if err != nil {
 		// TODO find a mechanism to retry connection or alert the agent
