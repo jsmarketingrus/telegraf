@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"golang.org/x/net/websocket"
+
 	"github.com/influxdata/telegraf/config"
+	"golang.org/x/net/websocket"
 )
 
-// 1. Should we make assistant in agent.Run? Where's the best place to access necessary data/resources
-// 2. If we shouldn't where should we instantiate the assistant
-// 3. If something goes wrong with the assistant, should we terminate Telegraf with log.Fatal
-
+// Assistant represents a client that will connect to the cloud server to allow
+// for plugin management remotely.
 type Assistant struct {
-	Config *config.Config
+	Config *config.Config // stores plugins and agent config
 }
 
+// NewAssistant returns an Assistant for the given Config.
 func NewAssistant(config *config.Config) (*Assistant, error) {
 	a := &Assistant{
 		Config: config,
@@ -23,22 +23,25 @@ func NewAssistant(config *config.Config) (*Assistant, error) {
 	return a, nil
 }
 
+// client stores the channels to communicate with the agent and the websocket
+// connection to the cloud server.
+// TODO determine if Ctx is necessary, and if so, what for
 type client struct {
 	ServerConn *websocket.Conn
-	FromAgent chan []byte
-	ToAgent chan []byte
-	Ctx context.Context
+	FromAgent  chan []byte
+	ToAgent    chan []byte
+	Ctx        context.Context
 }
 
+// agentListener relays messages received from the agent channel to the cloud
+// server.
 func (cli *client) agentListener() {
-	// Relays Agent Channel messages to the Server
-
 	for {
 		select {
 		case <-cli.Ctx.Done():
-			return;
+			return
 		case msg := <-cli.FromAgent:
-			fmt.Printf("Server Received: \"%s\" from agent.\n", msg)
+			fmt.Printf("Assistant received: \"%s\" from agent.\n", msg)
 			if _, err := cli.ServerConn.Write(msg); err != nil {
 				cli.ServerConn.Close()
 				log.Fatal(err)
@@ -48,39 +51,41 @@ func (cli *client) agentListener() {
 	}
 }
 
+// serverListener relays messages from the cloud server to the agent channel.
 func (cli *client) serverListener() {
-	// RelaysServer messages to the Agent Channel
-
 	var msg = make([]byte, 512)
 	var n int
 	var err error
 
 	for {
+		// Block on ServerConn.Read until a message is sent.
+		// Cannot put into a `select` statement because it is not a channel.
 		if n, err = cli.ServerConn.Read(msg); err != nil {
 			log.Fatal(err)
 			break
 		}
-		fmt.Printf("Agent Received: \"%s\" from server.\n", msg[:n])
+		fmt.Printf("Assistant received: \"%s\" from server.\n", msg[:n])
 		select {
+		// TODO ensure that this message is handled and actually returns
 		case <-cli.Ctx.Done():
-			return;
+			return
 		case cli.ToAgent <- msg[:n]:
 			continue
 		}
 	}
 }
 
+// Run is the main function that connects to the cloud server via websocket and
+// starts the Telegraf assistant's listeners.
 func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan []byte) error {
 	log.Printf("Started assistant")
-	// ! Don't use log.Fatal as that will terminate the whole process
-	
+
 	origin := "http://localhost/"
 	url := "ws://localhost:3001/ws"
 	ws, err := websocket.Dial(url, "", origin)
 
 	if err != nil {
-		// ws.Close()
-		// We should close the websocket if there is an error
+		// TODO find a mechanism to retry connection or alert the agent
 		log.Fatal(err)
 	}
 	cli := client{ServerConn: ws, FromAgent: fromAgent, ToAgent: toAgent, Ctx: ctx}
@@ -97,13 +102,4 @@ func (a *Assistant) Run(ctx context.Context, fromAgent chan []byte, toAgent chan
 			return nil
 		}
 	}
-
-	// var msg = make([]byte, 512)
-	// var n int
-	// if n, err = ws.Read(msg); err != nil {
-	// 	// ws.Close()
-	// 	// We should close the websocket if there is an error
-	// 	log.Fatal(err)
-	// }
-	// fmt.Printf("Received: %s.\n", msg[:n])
 }

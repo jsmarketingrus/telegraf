@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+// handleMessage receives and prints messages from a websocket connection.
 func handleMessage(conn *websocket.Conn) {
 	var msg = make([]byte, 512)
 	var n int
@@ -30,6 +31,8 @@ func handleMessage(conn *websocket.Conn) {
 
 }
 
+// main starts the mock cloud server, which listens for messages from the
+// Telegraf assistant
 func main() {
 	log.Printf("Listening on port 3001\n")
 	http.Handle("/ws", websocket.Handler(handleMessage))

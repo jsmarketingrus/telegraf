@@ -213,17 +213,15 @@ func runAgent(ctx context.Context,
 	fromAgent := make(chan []byte, 512)
 	toAgent := make(chan []byte, 512)
 
-	go func() {
-		ast.Run(ctx, fromAgent, toAgent)
-	}()
+	go ast.Run(ctx, fromAgent, toAgent)
 
-	// ! Code to test writing messages to server. Delete later.
+	// Test code to report current input plugins to the server
+	// TODO delete this function
 	go func() {
 		for {
 			time.Sleep(2 * time.Second)
 			fromAgent <- ([]byte("Inputs: " + strings.Join(c.InputNames(), " ")))
 		}
-
 	}()
 
 	return ag.Run(ctx)
