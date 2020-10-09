@@ -205,22 +205,33 @@ func runAgent(ctx context.Context,
 		}
 	}
 
-	ast, err := assistant.NewAssistant(c)
+	ast, err := assistant.NewAssistant(ctx, c)
 	if err != nil {
 		return err
 	}
 
-	fromAgent := make(chan []byte, 512)
-	toAgent := make(chan []byte, 512)
+	// TODO delete these functions
 
-	go ast.Run(ctx, fromAgent, toAgent)
-
-	// Test code to report current input plugins to the server
-	// TODO delete this function
+	// Code to demo writing to server
 	go func() {
-		for {
+		var err error
+		for err == nil {
+			var m = map[string]int64{
+				"client time": time.Now().Unix(),
+			}
 			time.Sleep(2 * time.Second)
-			fromAgent <- ([]byte("Inputs: " + strings.Join(c.InputNames(), " ")))
+			err = ast.WriteToServer(m)
+		}
+	}()
+	// Code to demo reading from server
+	go func() {
+		var i = 0
+		for {
+			select {
+			case message := <-ast.Requests:
+				i = i + 1
+				log.Printf("request %d from server: %s", i, message)
+			}
 		}
 	}()
 
