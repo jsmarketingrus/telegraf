@@ -1,43 +1,46 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log"
 	"net/http"
 	"time"
 
-	"golang.org/x/net/websocket"
+	"github.com/gorilla/websocket"
 )
 
-// handleMessage receives and prints messages from a websocket connection.
-func handleMessage(conn *websocket.Conn) {
-	var msg = make([]byte, 512)
-	var n int
-	var err error
+var addr = flag.String("addr", "localhost:8080", "http service address")
 
-	go func() {
-		for {
-			time.Sleep(2 * time.Second)
-			conn.Write([]byte("Sending from server!"))
-		}
-	}()
+var upgrader = websocket.Upgrader{} // use default options
 
-	for {
-		if n, err = conn.Read(msg); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("Received: %s.\n", msg[:n])
+func echo(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
 	}
-
+	defer c.Close()
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			break
+		}
+		log.Printf("recv: %s", message)
+		var m = map[string]int64{
+			"server time": time.Now().Unix(),
+		}
+		err = c.WriteJSON(m)
+		if err != nil {
+			log.Println("write:", err)
+			break
+		}
+	}
 }
 
-// main starts the mock cloud server, which listens for messages from the
-// Telegraf assistant
 func main() {
-	log.Printf("Listening on port 3001\n")
-	http.Handle("/ws", websocket.Handler(handleMessage))
-	err := http.ListenAndServe(":3001", nil)
-	if err != nil {
-		panic("ListenAndServe: " + err.Error())
-	}
+	flag.Parse()
+	log.SetFlags(0)
+	http.HandleFunc("/echo", echo)
+	log.Fatal(http.ListenAndServe(*addr, nil))
 }
