@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -21,20 +20,24 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 	for {
+		var m = `{
+			"Operation": "GET_PLUGIN",
+			"Uuid": "123",
+			"Plugin": {
+				"Name": "example plugin",
+			}
+		}`
+		err = c.WriteJSON(m)
+		if err != nil {
+			log.Println("write:", err)
+			break
+		}
 		_, message, err := c.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
 		}
 		log.Printf("recv: %s", message)
-		var m = map[string]int64{
-			"server time": time.Now().Unix(),
-		}
-		err = c.WriteJSON(m)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
 	}
 }
 
@@ -42,5 +45,6 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 	http.HandleFunc("/echo", echo)
+	log.Println("listening on localhost:8080/echo...")
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }

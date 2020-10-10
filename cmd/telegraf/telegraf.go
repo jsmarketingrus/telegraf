@@ -205,35 +205,11 @@ func runAgent(ctx context.Context,
 		}
 	}
 
-	ast, err := assistant.NewAssistant(ctx, c)
+	astConfig := &assistant.AssistantConfig{Host: "localhost:8080", Path: "/echo", RetryInterval: 15}
+	_, err = assistant.NewAssistant(ctx, astConfig, ag)
 	if err != nil {
 		return err
 	}
-
-	// TODO delete these functions
-
-	// Code to demo writing to server
-	go func() {
-		var err error
-		for err == nil {
-			var m = map[string]int64{
-				"client time": time.Now().Unix(),
-			}
-			time.Sleep(2 * time.Second)
-			err = ast.WriteToServer(m)
-		}
-	}()
-	// Code to demo reading from server
-	go func() {
-		var i = 0
-		for {
-			select {
-			case message := <-ast.Requests:
-				i = i + 1
-				log.Printf("request %d from server: %s", i, message)
-			}
-		}
-	}()
 
 	return ag.Run(ctx)
 }
