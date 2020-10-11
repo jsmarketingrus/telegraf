@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,13 +21,14 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 	for {
-		var m = `{
+		time.Sleep(2 * time.Second)
+		var m = map[string]interface{}{
 			"Operation": "GET_PLUGIN",
-			"Uuid": "123",
-			"Plugin": {
+			"Uuid":      "123",
+			"Plugin": map[string]string{
 				"Name": "example plugin",
-			}
-		}`
+			},
+		}
 		err = c.WriteJSON(m)
 		if err != nil {
 			log.Println("write:", err)
