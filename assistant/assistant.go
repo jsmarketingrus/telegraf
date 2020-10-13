@@ -21,7 +21,6 @@ Assistant is a client to facilitate communications between Agent and Cloud.
 type Assistant struct {
 	config     *AssistantConfig // stores plugins
 	connection *websocket.Conn  // Active websocket connection
-	ctx        context.Context  // go's context
 	done       chan bool        // Channel used to stop server listener
 	agent      *agent.Agent     // Pointer to agent to issue commands
 }
@@ -69,8 +68,8 @@ func NewAssistant(ctx context.Context, config *AssistantConfig, agent *agent.Age
 		log.Printf("E! [assistant] Failed to connect to [%s], retrying in %ds, "+
 			"error was '%s'", config.Host, config.RetryInterval, err)
 
-		err := internal.SleepContext(ctx, time.Duration(config.RetryInterval)*time.Second)
-		if err != nil {
+		sleepErr := internal.SleepContext(ctx, time.Duration(config.RetryInterval)*time.Second)
+		if sleepErr != nil {
 			return nil, err
 		}
 
@@ -81,21 +80,16 @@ func NewAssistant(ctx context.Context, config *AssistantConfig, agent *agent.Age
 	a := &Assistant{
 		config:     config,
 		connection: ws,
-		ctx:        ctx,
 		done:       make(chan bool),
 		agent:      agent,
 	}
-
-	go a.listenToServer()
 
 	return a, nil
 }
 
 // Stop is used to clean up active connection and all channels
 func (assistant *Assistant) Stop() {
-	assistant.connection.Close()
 	assistant.done <- true
-	close(assistant.done)
 }
 
 type plugin struct {
@@ -116,14 +110,23 @@ type Response struct {
 	Data   interface{}
 }
 
-// WriteToServer is used as a helper function to write status responses to server.
-func (assistant *Assistant) WriteToServer(payload Response) error {
-	/*
-		TODO: Write a dedicated struct for the input of WriteToServer.
-		Refer to the design doc for implementation.
-		https://docs.google.com/document/d/1pnXrWgXCvlpe5tB3YAlOtO6rsvBxoV7DMPHL82KpCok/edit?usp=sharing
-	*/
+// Run starts the assistant listening to the server and handles and interrupts or closed connections
+func (assistant *Assistant) Run(ctx context.Context) {
+	defer assistant.connection.Close()
+	go assistant.listenToServer(ctx)
+	for {
+		select {
+		case <-assistant.done:
+			return
+		case <-ctx.Done():
+			log.Printf("I! [assistant] Hang on, closing connection to server before shutdown")
+			return
+		}
+	}
+}
 
+// writeToServer is used as a helper function to write status responses to server.
+func (assistant *Assistant) writeToServer(payload Response) error {
 	err := assistant.connection.WriteJSON(payload)
 	if err != nil {
 		return err
@@ -131,28 +134,15 @@ func (assistant *Assistant) WriteToServer(payload Response) error {
 	return nil
 }
 
-func (assistant *Assistant) checkForTermination() {
-	for {
-		select {
-		case <-assistant.done:
-			return
-		case <-assistant.ctx.Done():
-			assistant.Stop()
-		default:
-			continue
-		}
-	}
-}
-
 // listenToServer takes requests from the server and puts it in Requests.
-func (assistant *Assistant) listenToServer() {
-	go assistant.checkForTermination()
-
+func (assistant *Assistant) listenToServer(ctx context.Context) {
+	defer close(assistant.done)
 	for {
 		var req Request
 		err := assistant.connection.ReadJSON(&req)
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("E! [assistant] error while reading from server: %s", err)
+			return
 		}
 
 		var data string
@@ -180,7 +170,7 @@ func (assistant *Assistant) listenToServer() {
 			// return error response
 			res = Response{"ERROR", req.Uuid, "invalid operation request"}
 		}
-		assistant.WriteToServer(res)
+		assistant.writeToServer(res)
 
 	}
 }

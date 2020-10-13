@@ -206,10 +206,11 @@ func runAgent(ctx context.Context,
 	}
 
 	astConfig := &assistant.AssistantConfig{Host: "localhost:8080", Path: "/echo", RetryInterval: 15}
-	_, err = assistant.NewAssistant(ctx, astConfig, ag)
+	ast, err := assistant.NewAssistant(ctx, astConfig, ag)
 	if err != nil {
 		return err
 	}
+	go ast.Run(ctx)
 
 	return ag.Run(ctx)
 }
