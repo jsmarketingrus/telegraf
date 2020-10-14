@@ -19,9 +19,9 @@ import (
 Assistant is a client to facilitate communications between Agent and Cloud.
 */
 type Assistant struct {
-	config     *AssistantConfig // stores plugins
+	config     *AssistantConfig // Configuration for Assitant's connection to server
 	connection *websocket.Conn  // Active websocket connection
-	done       chan bool        // Channel used to stop server listener
+	done       chan struct{}    // Channel used to stop server listener
 	agent      *agent.Agent     // Pointer to agent to issue commands
 }
 
@@ -50,38 +50,11 @@ func (astConfig *AssistantConfig) fillDefaults() {
 // NewAssistant returns an Assistant for the given Config.
 func NewAssistant(ctx context.Context, config *AssistantConfig, agent *agent.Agent) (*Assistant, error) {
 	config.fillDefaults()
-	var addr = flag.String("addr", config.Host, "http service address")
-	u := url.URL{Scheme: "ws", Host: *addr, Path: config.Path}
-
-	header := http.Header{}
-
-	if v, exists := os.LookupEnv("INFLUX_TOKEN"); exists {
-		header.Add("Authorization", "Token "+v)
-	} else {
-		return nil, fmt.Errorf("Influx authorization token not found, please set in env")
-	}
-
-	// creates a new websocket connection
-	log.Printf("D! [assistant] Attempting connection to [%s]", config.Host)
-	ws, _, err := websocket.DefaultDialer.Dial(u.String(), header)
-	for err != nil { // on error, retry connection again
-		log.Printf("E! [assistant] Failed to connect to [%s], retrying in %ds, "+
-			"error was '%s'", config.Host, config.RetryInterval, err)
-
-		sleepErr := internal.SleepContext(ctx, time.Duration(config.RetryInterval)*time.Second)
-		if sleepErr != nil {
-			return nil, err
-		}
-
-		ws, _, err = websocket.DefaultDialer.Dial(u.String(), header)
-	}
-	log.Printf("D! [assistant] Successfully connected to %s", config.Host)
 
 	a := &Assistant{
-		config:     config,
-		connection: ws,
-		done:       make(chan bool),
-		agent:      agent,
+		config: config,
+		done:   make(chan struct{}),
+		agent:  agent,
 	}
 
 	return a, nil
@@ -89,7 +62,7 @@ func NewAssistant(ctx context.Context, config *AssistantConfig, agent *agent.Age
 
 // Stop is used to clean up active connection and all channels
 func (assistant *Assistant) Stop() {
-	assistant.done <- true
+	assistant.done <- struct{}{}
 }
 
 type plugin struct {
@@ -111,16 +84,45 @@ type Response struct {
 }
 
 // Run starts the assistant listening to the server and handles and interrupts or closed connections
-func (assistant *Assistant) Run(ctx context.Context) {
+func (assistant *Assistant) Run(ctx context.Context) error {
+	var config = assistant.config
+	var addr = flag.String("addr", config.Host, "http service address")
+	u := url.URL{Scheme: "ws", Host: *addr, Path: config.Path}
+
+	header := http.Header{}
+
+	if v, exists := os.LookupEnv("INFLUX_TOKEN"); exists {
+		header.Add("Authorization", "Token "+v)
+	} else {
+		return fmt.Errorf("influx authorization token not found, please set in env")
+	}
+
+	// creates a new websocket connection
+	log.Printf("D! [assistant] Attempting connection to [%s]", config.Host)
+	ws, _, err := websocket.DefaultDialer.Dial(u.String(), header)
+	for err != nil { // on error, retry connection again
+		log.Printf("E! [assistant] Failed to connect to [%s], retrying in %ds, "+
+			"error was '%s'", config.Host, config.RetryInterval, err)
+
+		sleepErr := internal.SleepContext(ctx, time.Duration(config.RetryInterval)*time.Second)
+		if sleepErr != nil {
+			return sleepErr
+		}
+
+		ws, _, err = websocket.DefaultDialer.Dial(u.String(), header)
+	}
+	log.Printf("D! [assistant] Successfully connected to %s", config.Host)
+	assistant.connection = ws
+
 	defer assistant.connection.Close()
 	go assistant.listenToServer(ctx)
 	for {
 		select {
 		case <-assistant.done:
-			return
+			return nil
 		case <-ctx.Done():
 			log.Printf("I! [assistant] Hang on, closing connection to server before shutdown")
-			return
+			return nil
 		}
 	}
 }
@@ -141,15 +143,16 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 		var req Request
 		err := assistant.connection.ReadJSON(&req)
 		if err != nil {
+			// TODO add error handling for different types of errors
+			// common error that we see now is trying to read from a closed connection
 			log.Printf("E! [assistant] error while reading from server: %s", err)
 			return
 		}
 
-		var data string
 		var res Response
 		switch req.Operation {
 		case "GET_PLUGIN":
-			data = "TODO fetch plugin config"
+			data := "TODO fetch plugin config"
 			res = Response{"SUCCESS", req.Uuid, data}
 			fmt.Print("Received request")
 			fmt.Println(req)
@@ -157,20 +160,25 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 			// epic 2
 			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
 		case "UPDATE_PLUGIN":
-			data = "TODO fetch plugin config"
+			data := "TODO fetch plugin config"
 			res = Response{"SUCCESS", req.Uuid, data}
 		case "DELETE_PLUGIN":
 			// epic 2
 			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
 		case "GET_ALL_PLUGINS":
 			// epic 2
-			data = "TODO fetch all available plugins"
+			data := "TODO fetch all available plugins"
 			res = Response{"SUCCESS", req.Uuid, data}
 		default:
 			// return error response
 			res = Response{"ERROR", req.Uuid, "invalid operation request"}
 		}
-		assistant.writeToServer(res)
+		err = assistant.writeToServer(res)
+		if err != nil {
+			// TODO add error handling for different types of errors
+			log.Printf("E! [assistant] error while writing to server: %s", err)
+			return
+		}
 
 	}
 }
