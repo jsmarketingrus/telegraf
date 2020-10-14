@@ -5,4 +5,3 @@
 /telegraf.gz
 /vendor
 .DS_Store
-mock_server.go
