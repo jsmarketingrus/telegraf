@@ -15,6 +15,11 @@ import (
 	"github.com/influxdata/telegraf/internal"
 )
 
+const (
+	SUCCESS = "SUCCESS"
+	FAILURE = "FAILURE"
+)
+
 /*
 Assistant is a client to facilitate communications between Agent and Cloud.
 */
@@ -148,14 +153,31 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 			log.Printf("E! [assistant] error while reading from server: %s", err)
 			return
 		}
-
 		var res Response
 		switch req.Operation {
 		case "GET_PLUGIN":
-			data := "TODO fetch plugin config"
-			res = Response{"SUCCESS", req.Uuid, data}
-			fmt.Print("Received request")
-			fmt.Println(req)
+			fmt.Print("Received request: ", req.Operation, " for plugin ", req.Plugin.Name)
+			var data interface{}
+			var err error
+			switch req.Plugin.Type {
+			case "INPUT":
+				data, err = assistant.agent.GetInputPlugin(req.Plugin.Name)
+			case "OUTPUT":
+				data, err = assistant.agent.GetOutputPlugin(req.Plugin.Name)
+			case "AGGREGATOR":
+				data, err = assistant.agent.GetAggregatorPlugin(req.Plugin.Name)
+			case "PROCESSOR":
+				data, err = assistant.agent.GetProcessorPlugin(req.Plugin.Name)
+			default:
+				err = fmt.Errorf("did not provide a valid plugin type")
+			}
+
+			if err == nil && data != nil {
+				res = Response{"SUCCESS", req.Uuid, data}
+			} else {
+				res = Response{"FAILURE", req.Uuid, err.Error()}
+			}
+
 		case "ADD_PLUGIN":
 			// epic 2
 			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
