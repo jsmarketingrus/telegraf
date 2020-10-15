@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
-	"time"
+	"os"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,14 +23,21 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade error: ", err)
 		return
 	}
+	reader := bufio.NewReader(os.Stdin)
 	defer c.Close()
 	for {
-		time.Sleep(2 * time.Second)
+		plugin, _ := reader.ReadString('\n')
+		pluginType, _ := reader.ReadString('\n')
+		plugin = strings.Replace(plugin, "\n", "", -1)
+		pluginType = strings.Replace(pluginType, "\n", "", -1)
+
+		uid, _ := uuid.NewRandom()
 		var m = map[string]interface{}{
 			"Operation": "GET_PLUGIN",
-			"Uuid":      "123",
+			"Uuid":      uid.String(),
 			"Plugin": map[string]string{
-				"Name": "example plugin",
+				"Name": plugin,
+				"Type": pluginType,
 			},
 		}
 		err = c.WriteJSON(m)
@@ -41,6 +52,18 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("recv: %s", message)
 	}
+}
+
+func convertStringToJSON(s string) ([]byte, error) {
+	req := &Request{}
+	json.Unmarshal([]byte(s), req)
+	return json.Marshal(req)
+}
+
+type Request struct {
+	Operation string
+	Uuid      string
+	Plugin    map[string]string
 }
 
 func main() {
