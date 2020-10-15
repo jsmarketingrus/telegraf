@@ -16,11 +16,6 @@ import (
 	_ "github.com/influxdata/telegraf/logger"
 )
 
-const (
-	SUCCESS = "SUCCESS"
-	FAILURE = "FAILURE"
-)
-
 /*
 Assistant is a client to facilitate communications between Agent and Cloud.
 */
@@ -77,8 +72,18 @@ type plugin struct {
 	Config map[string]interface{}
 }
 
+type RequestType string
+
+const (
+	GET_PLUGIN      = RequestType("GET_PLUGIN")
+	ADD_PLUGIN      = RequestType("ADD_PLUGIN")
+	UPDATE_PLUGIN   = RequestType("UPDATE_PLUGIN")
+	DELETE_PLUGIN   = RequestType("DELETE_PLUGIN")
+	GET_ALL_PLUGINS = RequestType("GET_ALL_PLUGINS")
+)
+
 type Request struct {
-	Operation string
+	Operation RequestType
 	Uuid      string
 	Plugin    plugin
 }
@@ -88,6 +93,11 @@ type Response struct {
 	Uuid   string
 	Data   interface{}
 }
+
+const (
+	SUCCESS = "SUCCESS"
+	FAILURE = "FAILURE"
+)
 
 // Run starts the assistant listening to the server and handles and interrupts or closed connections
 func (assistant *Assistant) Run(ctx context.Context) error {
@@ -136,10 +146,7 @@ func (assistant *Assistant) Run(ctx context.Context) error {
 // writeToServer is used as a helper function to write status responses to server.
 func (assistant *Assistant) writeToServer(payload Response) error {
 	err := assistant.connection.WriteJSON(payload)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // listenToServer takes requests from the server and puts it in Requests.
@@ -156,7 +163,7 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 		}
 		var res Response
 		switch req.Operation {
-		case "GET_PLUGIN":
+		case GET_PLUGIN:
 			fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
 			var data interface{}
 			var err error
@@ -179,16 +186,16 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 				res = Response{"FAILURE", req.Uuid, err.Error()}
 			}
 
-		case "ADD_PLUGIN":
+		case ADD_PLUGIN:
 			// epic 2
 			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
-		case "UPDATE_PLUGIN":
+		case UPDATE_PLUGIN:
 			data := "TODO fetch plugin config"
 			res = Response{"SUCCESS", req.Uuid, data}
-		case "DELETE_PLUGIN":
+		case DELETE_PLUGIN:
 			// epic 2
 			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
-		case "GET_ALL_PLUGINS":
+		case GET_ALL_PLUGINS:
 			// epic 2
 			data := "TODO fetch all available plugins"
 			res = Response{"SUCCESS", req.Uuid, data}

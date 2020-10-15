@@ -209,14 +209,14 @@ func runAgent(ctx context.Context,
 	astConfig := &assistant.AssistantConfig{Host: "localhost:8080", Path: "/echo", RetryInterval: 15}
 	ast, err := assistant.NewAssistant(ctx, astConfig, ag)
 	if err != nil {
-		log.Printf("E! [assistant] %s", err)
+		log.Printf("E! [assistant] Error initializing Assistant: %s", err)
 	}
 
 	// run assistant
 	go func() {
 		err := ast.Run(ctx)
 		if err != nil {
-			log.Printf("E! [assistant] %s", err)
+			log.Printf("E! [assistant] Error running Assistant: %s", err)
 		}
 	}()
 
