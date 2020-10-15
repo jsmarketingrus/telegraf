@@ -202,10 +202,11 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 // GetInputPlugin gets the InputConfig for a plugin given its name
-func (a *Agent) GetInputPlugin(name string) (*models.InputConfig, error) {
+func (a *Agent) GetInputPlugin(name string) (telegraf.Input, error) {
 	for _, input := range a.Config.Inputs {
+		fmt.Println(input.Input)
 		if name == input.Config.Name {
-			return input.Config, nil
+			return input.Input, nil
 		}
 	}
 	return nil, fmt.Errorf("could not find input with name: %s", name)
