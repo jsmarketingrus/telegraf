@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/influxdata/telegraf/agent"
 	"github.com/influxdata/telegraf/internal"
+	_ "github.com/influxdata/telegraf/logger"
 )
 
 const (
@@ -156,7 +157,7 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 		var res Response
 		switch req.Operation {
 		case "GET_PLUGIN":
-			fmt.Print("Received request: ", req.Operation, " for plugin ", req.Plugin.Name)
+			fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
 			var data interface{}
 			var err error
 			switch req.Plugin.Type {
@@ -197,9 +198,8 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 		}
 		err = assistant.writeToServer(res)
 		if err != nil {
-			// TODO add error handling for different types of errors
-			log.Printf("E! [assistant] error while writing to server: %s", err)
-			return
+			// log error and keep connection open
+			log.Printf("E! [assistant] Error while writing to server: %s", err)
 		}
 
 	}

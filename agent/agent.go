@@ -204,7 +204,6 @@ func (a *Agent) Run(ctx context.Context) error {
 // GetInputPlugin gets the InputConfig for a plugin given its name
 func (a *Agent) GetInputPlugin(name string) (telegraf.Input, error) {
 	for _, input := range a.Config.Inputs {
-		fmt.Println(input.Input)
 		if name == input.Config.Name {
 			return input.Input, nil
 		}
@@ -213,30 +212,30 @@ func (a *Agent) GetInputPlugin(name string) (telegraf.Input, error) {
 }
 
 // GetOutputPlugin gets the OutputConfig for a plugin given its name
-func (a *Agent) GetOutputPlugin(name string) (*models.OutputConfig, error) {
+func (a *Agent) GetOutputPlugin(name string) (telegraf.Output, error) {
 	for _, output := range a.Config.Outputs {
 		if name == output.Config.Name {
-			return output.Config, nil
+			return output.Output, nil
 		}
 	}
 	return nil, fmt.Errorf("could not find output with name: %s", name)
 }
 
 // GetAggregatorPlugin gets the AggregatorConfig for a plugin given its name
-func (a *Agent) GetAggregatorPlugin(name string) (*models.AggregatorConfig, error) {
+func (a *Agent) GetAggregatorPlugin(name string) (telegraf.Aggregator, error) {
 	for _, aggregator := range a.Config.Aggregators {
 		if name == aggregator.Config.Name {
-			return aggregator.Config, nil
+			return aggregator.Aggregator, nil
 		}
 	}
 	return nil, fmt.Errorf("could not find aggregator with name: %s", name)
 }
 
 // GetProcessorPlugin gets the ProcessorConfig for a plugin given its name
-func (a *Agent) GetProcessorPlugin(name string) (*models.ProcessorConfig, error) {
+func (a *Agent) GetProcessorPlugin(name string) (telegraf.StreamingProcessor, error) {
 	for _, processor := range a.Config.Processors {
 		if name == processor.Config.Name {
-			return processor.Config, nil
+			return processor.Processor, nil
 		}
 	}
 	return nil, fmt.Errorf("could not find processor with name: %s", name)
