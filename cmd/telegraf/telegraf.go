@@ -207,7 +207,7 @@ func runAgent(ctx context.Context,
 
 	// init assistant
 	astConfig := &assistant.AssistantConfig{Host: "localhost:8080", Path: "/echo", RetryInterval: 15}
-	ast, err := assistant.NewAssistant(ctx, astConfig, ag)
+	ast, err := assistant.NewAssistant(astConfig, ag)
 	if err != nil {
 		log.Printf("E! [assistant] Error initializing Assistant: %s", err)
 	}
