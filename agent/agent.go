@@ -14,18 +14,24 @@ import (
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/models"
+	"github.com/influxdata/telegraf/plugins/inputs"
+	"github.com/influxdata/telegraf/plugins/outputs"
 	"github.com/influxdata/telegraf/plugins/serializers/influx"
 )
 
 // Agent runs a set of plugins.
 type Agent struct {
-	Config *config.Config
+	Config 			*config.Config
+	iu     			*inputUnit
+	wg     			sync.WaitGroup
+	inputStatus 	map[string]string
 }
 
 // NewAgent returns an Agent for the given Config.
 func NewAgent(config *config.Config) (*Agent, error) {
 	a := &Agent{
 		Config: config,
+		inputStatus : map[string]string {},
 	}
 	return a, nil
 }
@@ -94,6 +100,86 @@ type outputUnit struct {
 	outputs []*models.RunningOutput
 }
 
+func (a *Agent) runSingleInput(input_config *models.InputConfig, ctx context.Context) {
+	startTime := time.Now()
+
+	plugin := inputs.Inputs[input_config.Name]
+	input := models.NewRunningInput(plugin(), input_config)
+
+	// Overwrite agent interval if this plugin has its own.
+	interval := a.Config.Agent.Interval.Duration
+	if input.Config.Interval != 0 {
+		interval = input.Config.Interval
+	}
+
+	// Overwrite agent precision if this plugin has its own.
+	precision := a.Config.Agent.Precision.Duration
+	if input.Config.Precision != 0 {
+		precision = input.Config.Precision
+	}
+
+	// Overwrite agent collection_jitter if this plugin has its own.
+	jitter := a.Config.Agent.CollectionJitter.Duration
+	if input.Config.CollectionJitter != 0 {
+		jitter = input.Config.CollectionJitter
+	}
+
+	var ticker Ticker
+	if a.Config.Agent.RoundInterval {
+		ticker = NewAlignedTicker(startTime, interval, jitter)
+	} else {
+		ticker = NewUnalignedTicker(interval, jitter)
+	}
+
+	acc := NewAccumulator(input, a.iu.dst)
+	acc.SetPrecision(getPrecision(precision, interval))
+
+	a.wg.Add(1)
+	go func(input *models.RunningInput) {
+		defer ticker.Stop()
+		defer a.wg.Done()
+		a.gatherLoop(ctx, acc, input, ticker, interval)
+	}(input)
+
+	a.Config.Inputs = append(a.Config.Inputs, input)
+}
+
+func (a *Agent) AddInputPluginToAgent(pluginName string) {
+	plugin := inputs.Inputs[pluginName]
+	inputConfig := models.InputConfig{
+		Name: pluginName,
+		// TODO rest of config?
+	}
+	runningPlugin := models.NewRunningInput(plugin(), &inputConfig)
+	a.Config.Inputs = append(a.Config.Inputs, runningPlugin)
+}
+
+func (a *Agent) AddOutputPluginToAgent(pluginName string) {
+	plugin := outputs.Outputs[pluginName]
+	outputConfig := models.OutputConfig{
+		Name: pluginName,
+		// TODO rest of config?
+	}
+	runningPlugin := models.NewRunningOutput(pluginName, plugin(), &outputConfig, 0, 0)
+	a.Config.Outputs = append(a.Config.Outputs, runningPlugin)
+}
+
+func (a *Agent) GetAgentInputPlugins() []string {
+	var res []string
+	for _, runningInput := range a.Config.Inputs {
+		res = append(res, runningInput.Config.Name)
+	}
+	return res
+}
+
+func (a *Agent) GetAgentOutputPlugins() []string {
+	var res []string
+	for _, runningOutput := range a.Config.Outputs {
+		res = append(res, runningOutput.Config.Name)
+	}
+	return res
+}
+
 // Run starts and runs the Agent until the context is done.
 func (a *Agent) Run(ctx context.Context) error {
 	log.Printf("I! [agent] Config: Interval:%s, Quiet:%#v, Hostname:%#v, "+
@@ -141,6 +227,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 
 	iu, err := a.startInputs(next, a.Config.Inputs)
+	a.iu = iu
 	if err != nil {
 		return err
 	}
@@ -290,7 +377,9 @@ func (a *Agent) runInputs(
 	unit *inputUnit,
 ) error {
 	var wg sync.WaitGroup
+	a.wg = wg
 	for _, input := range unit.inputs {
+
 		// Overwrite agent interval if this plugin has its own.
 		interval := a.Config.Agent.Interval.Duration
 		if input.Config.Interval != 0 {
@@ -326,7 +415,6 @@ func (a *Agent) runInputs(
 			a.gatherLoop(ctx, acc, input, ticker, interval)
 		}(input)
 	}
-
 	wg.Wait()
 
 	log.Printf("D! [agent] Stopping service inputs")
@@ -447,6 +535,17 @@ func stopServiceInputs(inputs []*models.RunningInput) {
 	}
 }
 
+func (a *Agent) StopInputPlugin(input string) {
+	a.inputStatus[input] = "STOP"
+
+	for i, other := range a.Config.Inputs {
+		if other.Config.Name == input {
+			a.Config.Inputs = append(a.Config.Inputs[:i], a.Config.Inputs[i+1:]...)
+			break
+		}
+	}
+}
+
 // gather runs an input's gather function periodically until the context is
 // done.
 func (a *Agent) gatherLoop(
@@ -461,10 +560,24 @@ func (a *Agent) gatherLoop(
 	for {
 		select {
 		case <-ticker.Elapsed():
-			err := a.gatherOnce(acc, input, ticker, interval)
-			if err != nil {
-				acc.AddError(err)
+			status, ok := a.inputStatus[input.Config.Name]
+			
+			if ok {
+				if status != "STOP" {
+					err := a.gatherOnce(acc, input, ticker, interval)
+					if err != nil {
+						acc.AddError(err)
+					}
+					return
+				}
+			} else {
+
+				err := a.gatherOnce(acc, input, ticker, interval)
+				if err != nil {
+					acc.AddError(err)
+				}
 			}
+
 		case <-ctx.Done():
 			return
 		}
