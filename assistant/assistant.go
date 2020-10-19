@@ -49,7 +49,7 @@ func (astConfig *AssistantConfig) fillDefaults() {
 }
 
 // NewAssistant returns an Assistant for the given Config.
-func NewAssistant(ctx context.Context, config *AssistantConfig, agent *agent.Agent) (*Assistant, error) {
+func NewAssistant(config *AssistantConfig, agent *agent.Agent) (*Assistant, error) {
 	config.fillDefaults()
 
 	a := &Assistant{
@@ -164,28 +164,7 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 		var res Response
 		switch req.Operation {
 		case GET_PLUGIN:
-			fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
-			var data interface{}
-			var err error
-			switch req.Plugin.Type {
-			case "INPUT":
-				data, err = assistant.agent.GetInputPlugin(req.Plugin.Name)
-			case "OUTPUT":
-				data, err = assistant.agent.GetOutputPlugin(req.Plugin.Name)
-			case "AGGREGATOR":
-				data, err = assistant.agent.GetAggregatorPlugin(req.Plugin.Name)
-			case "PROCESSOR":
-				data, err = assistant.agent.GetProcessorPlugin(req.Plugin.Name)
-			default:
-				err = fmt.Errorf("did not provide a valid plugin type")
-			}
-
-			if err == nil && data != nil {
-				res = Response{"SUCCESS", req.Uuid, data}
-			} else {
-				res = Response{"FAILURE", req.Uuid, err.Error()}
-			}
-
+			res = assistant.getPlugin(req)
 		case ADD_PLUGIN:
 			// epic 2
 			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
@@ -212,7 +191,7 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 	}
 }
 
-func (assistant *Assistant) getPluginHandler(req request) response {
+func (assistant *Assistant) getPlugin(req request) response {
 	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
 
 	var res response
