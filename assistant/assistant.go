@@ -211,3 +211,31 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 
 	}
 }
+
+func (assistant *Assistant) getPluginHandler(req request) response {
+	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
+
+	var res response
+	var data interface{}
+	var err error
+	switch req.Plugin.Type {
+	case "INPUT":
+		data, err = assistant.agent.GetInputPlugin(req.Plugin.Name)
+	case "OUTPUT":
+		data, err = assistant.agent.GetOutputPlugin(req.Plugin.Name)
+	case "AGGREGATOR":
+		data, err = assistant.agent.GetAggregatorPlugin(req.Plugin.Name)
+	case "PROCESSOR":
+		data, err = assistant.agent.GetProcessorPlugin(req.Plugin.Name)
+	default:
+		err = fmt.Errorf("did not provide a valid plugin type")
+	}
+
+	if err == nil && data != nil {
+		res = response{"SUCCESS", req.UUID, data}
+	} else {
+		res = response{"FAILURE", req.UUID, err.Error()}
+	}
+
+	return res
+}
