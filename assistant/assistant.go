@@ -72,25 +72,25 @@ type plugin struct {
 	Config map[string]interface{}
 }
 
-type RequestType string
+type requestType string
 
 const (
-	GET_PLUGIN      = RequestType("GET_PLUGIN")
-	ADD_PLUGIN      = RequestType("ADD_PLUGIN")
-	UPDATE_PLUGIN   = RequestType("UPDATE_PLUGIN")
-	DELETE_PLUGIN   = RequestType("DELETE_PLUGIN")
-	GET_ALL_PLUGINS = RequestType("GET_ALL_PLUGINS")
+	GET_PLUGIN      = requestType("GET_PLUGIN")
+	ADD_PLUGIN      = requestType("ADD_PLUGIN")
+	UPDATE_PLUGIN   = requestType("UPDATE_PLUGIN")
+	DELETE_PLUGIN   = requestType("DELETE_PLUGIN")
+	GET_ALL_PLUGINS = requestType("GET_ALL_PLUGINS")
 )
 
-type Request struct {
-	Operation RequestType
-	Uuid      string
+type request struct {
+	Operation requestType
+	UUID      string
 	Plugin    plugin
 }
 
-type Response struct {
+type response struct {
 	Status string
-	Uuid   string
+	UUID   string
 	Data   interface{}
 }
 
@@ -143,17 +143,11 @@ func (assistant *Assistant) Run(ctx context.Context) error {
 	}
 }
 
-// writeToServer is used as a helper function to write status responses to server.
-func (assistant *Assistant) writeToServer(payload Response) error {
-	err := assistant.connection.WriteJSON(payload)
-	return err
-}
-
 // listenToServer takes requests from the server and puts it in Requests.
 func (assistant *Assistant) listenToServer(ctx context.Context) {
 	defer close(assistant.done)
 	for {
-		var req Request
+		var req request
 		err := assistant.connection.ReadJSON(&req)
 		if err != nil {
 			// TODO add error handling for different types of errors
@@ -161,31 +155,32 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 			log.Printf("E! [assistant] error while reading from server: %s", err)
 			return
 		}
-		var res Response
+		var res response
 		switch req.Operation {
 		case GET_PLUGIN:
 			res = assistant.getPlugin(req)
 		case ADD_PLUGIN:
 			// epic 2
-			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
+			res = response{"SUCCESS", req.UUID, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
 		case UPDATE_PLUGIN:
 			data := "TODO fetch plugin config"
-			res = Response{"SUCCESS", req.Uuid, data}
+			res = response{"SUCCESS", req.UUID, data}
 		case DELETE_PLUGIN:
 			// epic 2
-			res = Response{"SUCCESS", req.Uuid, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
+			res = response{"SUCCESS", req.UUID, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
 		case GET_ALL_PLUGINS:
 			// epic 2
 			data := "TODO fetch all available plugins"
-			res = Response{"SUCCESS", req.Uuid, data}
+			res = response{"SUCCESS", req.UUID, data}
 		default:
 			// return error response
-			res = Response{"ERROR", req.Uuid, "invalid operation request"}
+			res = response{"ERROR", req.UUID, "invalid operation request"}
 		}
-		err = assistant.writeToServer(res)
+		err = assistant.connection.WriteJSON(res)
 		if err != nil {
 			// log error and keep connection open
 			log.Printf("E! [assistant] Error while writing to server: %s", err)
+			assistant.connection.WriteJSON(response{"ERROR", req.UUID, "error marshalling config"})
 		}
 
 	}
