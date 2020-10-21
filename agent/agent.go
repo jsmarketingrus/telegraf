@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -24,14 +25,20 @@ type Agent struct {
 	Config 			*config.Config
 	iu     			*inputUnit
 	wg     			sync.WaitGroup
-	inputStatus 	map[string](chan string)
+	statusMap 	map[string](map[string]chan string)
 }
 
 // NewAgent returns an Agent for the given Config.
 func NewAgent(config *config.Config) (*Agent, error) {
+	inputStatusMap := make(map[string]chan string)
+	outputStatusMap := make(map[string]chan string)
+	
+	statusMap := make(map[string]map[string]chan string)
+	statusMap["input"] = inputStatusMap
+	statusMap["output"] = outputStatusMap
 	a := &Agent{
 		Config: config,
-		inputStatus : map[string](chan string) {},
+		statusMap : statusMap,
 		wg : sync.WaitGroup{},
 	}
 	return a, nil
@@ -101,12 +108,12 @@ type outputUnit struct {
 	outputs []*models.RunningOutput
 }
 
-func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Context) {
+func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Context) error {
 	// validating if an input plugin is already running, and therefore shouldn't be run again
-	_, ok := a.inputStatus[input_config.Name]
+	_, ok := a.statusMap["input"][input_config.Name]
 	if ok {
 		log.Printf("E! [agent] You are trying to run an input that is already running: %s \n", input_config.Name)
-		return
+		return errors.New("you are trying to run an input that is already running")
 	}
 
 	startTime := time.Now()
@@ -115,7 +122,7 @@ func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Con
 	plugin, ok := inputs.Inputs[input_config.Name]
 	if !ok {
 		log.Printf("E! [agent] input config's name is not valid: %s \n", input_config.Name)
-		return
+		return errors.New("input config's name is not valid")
 	}
 	input := models.NewRunningInput(plugin(), input_config)
 
@@ -148,7 +155,7 @@ func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Con
 	acc.SetPrecision(getPrecision(precision, interval))
 
 	statusCase := make(chan string)
-	a.inputStatus[input.Config.Name] = statusCase
+	a.statusMap["input"][input.Config.Name] = statusCase
 
 	a.wg.Add(1)
 	go func(input *models.RunningInput) {
@@ -158,6 +165,7 @@ func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Con
 
 	a.Config.Inputs = append(a.Config.Inputs, input)
 	a.wg.Wait()
+	return nil
 }
 
 func GetAllInputPlugins() []string {
@@ -513,11 +521,12 @@ func stopServiceInputs(inputs []*models.RunningInput) {
 func (a *Agent) StopInputPlugin(input string) {
 
 	// will write "STOP" to the channel as a case for gatherLoop
-	status_channel, ok := a.inputStatus[input]
+	statusChannel, ok := a.statusMap["input"][input]
 	if !ok {
-		fmt.Errorf("E! [agent] You are trying to stop an input that is not running: %s", input)
+		log.Printf("E! [agent] You are trying to stop an input that is not running: %s \n", input)
+		return
 	}
-	status_channel <- "STOP"
+	statusChannel <- "STOP"
 
 	for i, other := range a.Config.Inputs {
 		if other.Config.Name == input {
@@ -540,10 +549,10 @@ func (a *Agent) gatherLoop(
 
 	for {
 		select {
-		case status := <-a.inputStatus[input.Config.Name]:
+		case status := <-a.statusMap["input"][input.Config.Name]:
 			if status == "STOP" {
 				log.Println("I! [agent] stopping an input plugin, will delete from agent's inputStatus")
-				delete(a.inputStatus, input.Config.Name)
+				delete(a.statusMap["input"], input.Config.Name)
 				return
 			}
 		case <-ticker.Elapsed():
