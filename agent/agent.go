@@ -25,7 +25,8 @@ type Agent struct {
 	Config 			*config.Config
 	iu     			*inputUnit
 	wg     			sync.WaitGroup
-	statusMap 	map[string](map[string]chan string)
+	statusMap 		map[string](map[string]chan string)
+	statusMux		sync.Mutex
 }
 
 // NewAgent returns an Agent for the given Config.
@@ -40,6 +41,7 @@ func NewAgent(config *config.Config) (*Agent, error) {
 		Config: config,
 		statusMap : statusMap,
 		wg : sync.WaitGroup{},
+		statusMux : sync.Mutex{},
 	}
 	return a, nil
 }
@@ -109,10 +111,17 @@ type outputUnit struct {
 }
 
 func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Context) error {
+
+	// NOTE: we can't just use `defer a.statusMutex.Unlock()` since except for the input validation,
+	// this function only returns once the gatherLoop is done -- i.e. when the plugin is stopped.
+	// Be careful to manually unlock the statusMutex in this function.
+
 	// validating if an input plugin is already running, and therefore shouldn't be run again
+	a.statusMux.Lock()
 	_, ok := a.statusMap["input"][input_config.Name]
 	if ok {
 		log.Printf("E! [agent] You are trying to run an input that is already running: %s \n", input_config.Name)
+		a.statusMux.Unlock()
 		return errors.New("you are trying to run an input that is already running")
 	}
 
@@ -122,8 +131,11 @@ func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Con
 	plugin, ok := inputs.Inputs[input_config.Name]
 	if !ok {
 		log.Printf("E! [agent] input config's name is not valid: %s \n", input_config.Name)
+		a.statusMux.Unlock()
 		return errors.New("input config's name is not valid")
 	}
+
+	a.statusMux.Unlock()
 	input := models.NewRunningInput(plugin(), input_config)
 
 	// Overwrite agent interval if this plugin has its own.
@@ -150,12 +162,16 @@ func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Con
 	} else {
 		ticker = NewUnalignedTicker(interval, jitter)
 	}
+
 	defer ticker.Stop()
 	acc := NewAccumulator(input, a.iu.dst)
 	acc.SetPrecision(getPrecision(precision, interval))
 
 	statusCase := make(chan string)
+
+	a.statusMux.Lock()
 	a.statusMap["input"][input.Config.Name] = statusCase
+	a.statusMux.Unlock()
 
 	a.wg.Add(1)
 	go func(input *models.RunningInput) {
@@ -520,12 +536,21 @@ func stopServiceInputs(inputs []*models.RunningInput) {
 
 func (a *Agent) StopInputPlugin(input string) {
 
+	// NOTE: don't use `defer a.statusMux.Unlock()` here,
+	// since we write to a channel that gatherLoop() is waiting on,
+	// and we need to maintain our invariant for gatherLoop()
+	// that it is given an unlocked mutex and returns an unlocked mutex.
+
+	a.statusMux.Lock()
+
 	// will write "STOP" to the channel as a case for gatherLoop
 	statusChannel, ok := a.statusMap["input"][input]
 	if !ok {
 		log.Printf("E! [agent] You are trying to stop an input that is not running: %s \n", input)
 		return
 	}
+
+	a.statusMux.Unlock()
 	statusChannel <- "STOP"
 
 	for i, other := range a.Config.Inputs {
@@ -548,21 +573,33 @@ func (a *Agent) gatherLoop(
 	defer panicRecover(input)
 
 	for {
+		// INVARIANT: received unlocked mutex, return unlocked mutex
+		// NOTE: Again, don't just use defer to unlock because of the ticker.Elapsed() case
+		// Be careful of changing locks here -- could easily make it sequential
+
+		a.statusMux.Lock()
 		select {
+
 		case status := <-a.statusMap["input"][input.Config.Name]:
 			if status == "STOP" {
-				log.Println("I! [agent] stopping an input plugin, will delete from agent's inputStatus")
+				log.Println("I! [agent] stopping input plugin %s", input.Config.Name)
 				delete(a.statusMap["input"], input.Config.Name)
+				a.statusMux.Unlock()
 				return
 			}
 		case <-ticker.Elapsed():
+			a.statusMux.Unlock()
 			err := a.gatherOnce(acc, input, ticker, interval)
 			if err != nil {
 				acc.AddError(err)
 			}
 
 		case <-ctx.Done():
+			a.statusMux.Unlock()
 			return
+
+		default:
+			a.statusMux.Unlock()
 		}
 	}
 }
