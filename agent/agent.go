@@ -15,6 +15,7 @@ import (
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/models"
 	"github.com/influxdata/telegraf/plugins/inputs"
+	"github.com/influxdata/telegraf/plugins/outputs"
 	"github.com/influxdata/telegraf/plugins/serializers/influx"
 )
 
@@ -157,6 +158,22 @@ func (a *Agent) RunSingleInput(input_config *models.InputConfig, ctx context.Con
 
 	a.Config.Inputs = append(a.Config.Inputs, input)
 	a.wg.Wait()
+}
+
+func GetAllInputPlugins() []string {
+	var res []string
+	for name, _ := range inputs.Inputs {
+		res = append(res, name)
+	}
+	return res
+}
+
+func GetAllOutputPlugins() []string {
+	var res []string
+	for name, _ := range outputs.Outputs {
+		res = append(res, name)
+	}
+	return res
 }
 
 func (a *Agent) GetInputPlugins() []string {
