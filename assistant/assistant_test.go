@@ -13,18 +13,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAssistant_GetPluginAsJSON(t *testing.T) {
+func initAgentAndAssistant(ctx context.Context) (*agent.Agent, *Assistant) {
 	c := config.NewConfig()
-	err := c.LoadConfig("../config/testdata/telegraf-agent.toml")
-	assert.NoError(t, err)
 	ag, _ := agent.NewAgent(c)
 	ast, _ := NewAssistant(&AssistantConfig{Host: "localhost:8080", Path: "/echo", RetryInterval: 15}, ag)
 
-	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		ag.Run(ctx)
 	}()
 
+	return ag, ast
+}
+
+func TestAssistant_GetPluginAsJSON(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	ag, ast := initAgentAndAssistant(ctx)
 	time.Sleep(2 * time.Second)
 
 	// ! BROKEN UNTIL MERGE!
@@ -40,7 +43,7 @@ func TestAssistant_GetPluginAsJSON(t *testing.T) {
 		name := p.Config.Name
 		req := request{GET_PLUGIN, "123", plugin{name, "INPUT", nil}}
 		res := ast.getPlugin(req)
-		assert.True(t, res.Status == "SUCCESS")
+		assert.True(t, res.Status == SUCCESS)
 		_, err := json.Marshal(res)
 		assert.NoError(t, err)
 	}
@@ -49,10 +52,36 @@ func TestAssistant_GetPluginAsJSON(t *testing.T) {
 		name := p.Config.Name
 		req := request{GET_PLUGIN, "123", plugin{name, "OUTPUT", nil}}
 		res := ast.getPlugin(req)
-		assert.True(t, res.Status == "SUCCESS")
+		assert.True(t, res.Status == SUCCESS)
 		_, err := json.Marshal(res)
 		assert.NoError(t, err)
 	}
+
+	cancel()
+}
+
+// ? Unsure what Data will contain
+// TODO Implement assertions on res.Data
+func TestAssistant_ListActivePlugins(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	_, ast := initAgentAndAssistant(ctx)
+	time.Sleep(2 * time.Second)
+
+	res := ast.listActivePlugins()
+	assert.True(t, res.Status == SUCCESS)
+
+	cancel()
+}
+
+// ? Unsure what Data will contain
+// TODO Implement assertions on res.Data
+func TestAssistant_ListPlugins(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	_, ast := initAgentAndAssistant(ctx)
+	time.Sleep(2 * time.Second)
+
+	res := ast.listPlugins()
+	assert.True(t, res.Status == SUCCESS)
 
 	cancel()
 }

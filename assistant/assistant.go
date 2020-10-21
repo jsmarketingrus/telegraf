@@ -210,3 +210,13 @@ func (assistant *Assistant) getPlugin(req request) response {
 
 	return res
 }
+
+// TODO Implement after merge
+func (assistant *Assistant) listPlugins() response {
+	return response{}
+}
+
+// TODO Implement after merge
+func (assistant *Assistant) listActivePlugins() response {
+	return response{}
+}
