@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/influxdata/telegraf/agent"
 	"github.com/influxdata/telegraf/internal"
-	_ "github.com/influxdata/telegraf/logger"
 )
 
 /*
@@ -80,6 +79,8 @@ const (
 	UPDATE_PLUGIN   = requestType("UPDATE_PLUGIN")
 	DELETE_PLUGIN   = requestType("DELETE_PLUGIN")
 	GET_ALL_PLUGINS = requestType("GET_ALL_PLUGINS")
+	SUCCESS         = "SUCCESS"
+	FAILURE         = "FAILURE"
 )
 
 type request struct {
@@ -93,11 +94,6 @@ type response struct {
 	UUID   string
 	Data   interface{}
 }
-
-const (
-	SUCCESS = "SUCCESS"
-	FAILURE = "FAILURE"
-)
 
 // Run starts the assistant listening to the server and handles and interrupts or closed connections
 func (assistant *Assistant) Run(ctx context.Context) error {
@@ -161,26 +157,27 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 			res = assistant.getPlugin(req)
 		case ADD_PLUGIN:
 			// epic 2
-			res = response{"SUCCESS", req.UUID, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
+			res = response{SUCCESS, req.UUID, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
 		case UPDATE_PLUGIN:
 			data := "TODO fetch plugin config"
-			res = response{"SUCCESS", req.UUID, data}
+			res = response{SUCCESS, req.UUID, data}
 		case DELETE_PLUGIN:
 			// epic 2
-			res = response{"SUCCESS", req.UUID, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
+			res = response{SUCCESS, req.UUID, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
 		case GET_ALL_PLUGINS:
 			// epic 2
 			data := "TODO fetch all available plugins"
-			res = response{"SUCCESS", req.UUID, data}
+			res = response{SUCCESS, req.UUID, data}
 		default:
 			// return error response
-			res = response{"ERROR", req.UUID, "invalid operation request"}
+			res = response{FAILURE, req.UUID, "invalid operation request"}
 		}
 		err = assistant.connection.WriteJSON(res)
 		if err != nil {
 			// log error and keep connection open
+			// TODO retry write to server, something wrong with error response.
 			log.Printf("E! [assistant] Error while writing to server: %s", err)
-			assistant.connection.WriteJSON(response{"ERROR", req.UUID, "error marshalling config"})
+			assistant.connection.WriteJSON(response{FAILURE, req.UUID, "error marshalling config"})
 		}
 
 	}
@@ -206,9 +203,9 @@ func (assistant *Assistant) getPlugin(req request) response {
 	}
 
 	if err == nil && data != nil {
-		res = response{"SUCCESS", req.UUID, data}
+		res = response{SUCCESS, req.UUID, data}
 	} else {
-		res = response{"FAILURE", req.UUID, err.Error()}
+		res = response{FAILURE, req.UUID, err.Error()}
 	}
 
 	return res
