@@ -74,13 +74,14 @@ type plugin struct {
 type requestType string
 
 const (
-	GET_PLUGIN      = requestType("GET_PLUGIN")
-	ADD_PLUGIN      = requestType("ADD_PLUGIN")
-	UPDATE_PLUGIN   = requestType("UPDATE_PLUGIN")
-	DELETE_PLUGIN   = requestType("DELETE_PLUGIN")
-	GET_ALL_PLUGINS = requestType("GET_ALL_PLUGINS")
-	SUCCESS         = "SUCCESS"
-	FAILURE         = "FAILURE"
+	GET_PLUGIN          = requestType("GET_PLUGIN")
+	ADD_PLUGIN          = requestType("ADD_PLUGIN")
+	UPDATE_PLUGIN       = requestType("UPDATE_PLUGIN")
+	DELETE_PLUGIN       = requestType("DELETE_PLUGIN")
+	GET_RUNNING_PLUGINS = requestType("GET_RUNNING_PLUGINS")
+	GET_ALL_PLUGINS     = requestType("GET_ALL_PLUGINS")
+	SUCCESS             = "SUCCESS"
+	FAILURE             = "FAILURE"
 )
 
 type request struct {
@@ -157,16 +158,30 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 			res = assistant.getPlugin(req)
 		case ADD_PLUGIN:
 			// epic 2
-			res = response{SUCCESS, req.UUID, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
+			assistant.agent.DemoRunInput(ctx, req.Plugin.Name)
+			res = response{"SUCCESS", req.UUID, fmt.Sprintf("%s plugin added.", req.Plugin.Name)}
 		case UPDATE_PLUGIN:
-			data := "TODO fetch plugin config"
-			res = response{SUCCESS, req.UUID, data}
+			res = assistant.updatePlugin(req)
 		case DELETE_PLUGIN:
 			// epic 2
-			res = response{SUCCESS, req.UUID, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
-		case GET_ALL_PLUGINS:
+			assistant.agent.StopInputPlugin(req.Plugin.Name)
+			res = response{"SUCCESS", req.UUID, fmt.Sprintf("%s plugin deleted.", req.Plugin.Name)}
+		case GET_RUNNING_PLUGINS:
 			// epic 2
-			data := "TODO fetch all available plugins"
+			inputs := assistant.agent.GetInputPlugins()
+			outputs := assistant.agent.GetOutputPlugins()
+			data := map[string]interface{}{
+				"outputs": outputs,
+				"inputs":  inputs,
+			}
+			res = response{SUCCESS, req.UUID, data}
+		case GET_ALL_PLUGINS:
+			inputs := assistant.agent.GetAllInputPlugins()
+			outputs := assistant.agent.GetAllOutputPlugins()
+			data := map[string]interface{}{
+				"outputs": outputs,
+				"inputs":  inputs,
+			}
 			res = response{SUCCESS, req.UUID, data}
 		default:
 			// return error response
@@ -230,7 +245,6 @@ func (assistant *Assistant) updatePlugin(req request) response {
 	switch req.Plugin.Type {
 	case "INPUT":
 		data, err = assistant.agent.UpdateInputPlugin(req.Plugin.Name, &req.Plugin.Config)
-		// plugin, err = assistant.agent.GetInputPlugin(req.Plugin.Name)
 	case "OUTPUT":
 		// TODO
 		// plugin, err = assistant.agent.GetOutputPlugin(req.Plugin.Name)
