@@ -240,7 +240,6 @@ func (assistant *Assistant) updatePlugin(req request) response {
 		res = response{FAILURE, req.UUID, "No config specified!"}
 		return res
 	}
-	fmt.Printf("Starting checking type of plugin\n")
 
 	switch req.Plugin.Type {
 	case "INPUT":

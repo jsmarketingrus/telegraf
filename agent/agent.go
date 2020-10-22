@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+        "errors"
 	"fmt"
 	"log"
 	"os"
@@ -124,9 +125,25 @@ func (a *Agent) RunSingleInput(inputConfig *models.InputConfig, ctx context.Cont
 	// Be careful to manually unlock the statusMutex in this function.
 
 	// validating if an input plugin is already running, and therefore shouldn't be run again
+        a.statusMux.Lock()
+	_, ok := a.statusMap["input"][inputConfig.Name]
+	if ok {
+		log.Printf("E! [agent] You are trying to run an input that is already running: %s \n", inputConfig.Name)
+		a.statusMux.Unlock()
+		return errors.New("you are trying to run an input that is already running")
+	}
+
 	startTime := time.Now()
 
-	plugin := inputs.Inputs[inputConfig.Name]
+	// seeing if the plugin exists
+	plugin, ok := inputs.Inputs[inputConfig.Name]
+	if !ok {
+		log.Printf("E! [agent] input config's name is not valid: %s \n", inputConfig.Name)
+		a.statusMux.Unlock()
+		return errors.New("input config's name is not valid")
+	}
+
+	a.statusMux.Unlock()
 	input := models.NewRunningInput(plugin(), inputConfig)
 
 	// Overwrite agent interval if this plugin has its own.
@@ -156,6 +173,12 @@ func (a *Agent) RunSingleInput(inputConfig *models.InputConfig, ctx context.Cont
 
 	acc := NewAccumulator(input, a.iu.dst)
 	acc.SetPrecision(getPrecision(precision, interval))
+
+        statusCase := make(chan string)
+
+	a.statusMux.Lock()
+	a.statusMap["input"][input.Config.Name] = statusCase
+	a.statusMux.Unlock()
 
 	a.wg.Add(1)
 	go func(input *models.RunningInput) {
@@ -499,6 +522,12 @@ func (a *Agent) runInputs(
 		acc := NewAccumulator(input, unit.dst)
 		acc.SetPrecision(getPrecision(precision, interval))
 
+                statusCase := make(chan string)
+
+                a.statusMux.Lock()
+                a.statusMap["input"][input.Config.Name] = statusCase
+                a.statusMux.Unlock()
+
 		wg.Add(1)
 		go func(input *models.RunningInput) {
 			defer wg.Done()
@@ -679,6 +708,7 @@ func (a *Agent) gatherLoop(
 				return
 			}
 		case <-ticker.Elapsed():
+                        log.Println("Ticker elapsed: ", input.Config.Name)
 			a.statusMux.Unlock()
 			err := a.gatherOnce(acc, input, ticker, interval)
 			if err != nil {
