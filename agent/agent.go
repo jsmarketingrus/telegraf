@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"runtime"
 	"sort"
 	"sync"
@@ -209,6 +210,35 @@ func (a *Agent) GetInputPlugin(name string) (telegraf.Input, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not find input with name: %s", name)
+}
+
+// UpdateInputPlugin gets the InputConfig for a plugin given its name
+func (a *Agent) UpdateInputPlugin(name string, config *map[string]interface{}) (telegraf.Input, error) {
+	fmt.Printf("Reached update input plugin\n")
+	for _, input := range a.Config.Inputs {
+		if name == input.Config.Name {
+			plugin := input.Input
+			reflectedPlugin := reflect.ValueOf(plugin)
+			s := reflectedPlugin.Elem()
+
+			// TODO: STOP PLUGIN
+
+			if s.Kind() == reflect.Struct {
+				fmt.Printf("Inside if statement\n")
+				for pluginKey, newValue := range *config {
+					f := s.FieldByName(pluginKey)
+					reflectedNew := reflect.ValueOf(newValue)
+					if f.IsValid() && f.CanSet() && f.Type() == reflectedNew.Type() {
+						f.Set(reflectedNew)
+					}
+				}
+				return plugin, nil
+			}
+
+			// TODO START PLUGIN
+		}
+	}
+	return nil, fmt.Errorf("could not update input with name: %s", name)
 }
 
 // GetOutputPlugin gets the OutputConfig for a plugin given its name

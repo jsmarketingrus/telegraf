@@ -202,11 +202,56 @@ func (assistant *Assistant) getPlugin(req request) response {
 		err = fmt.Errorf("did not provide a valid plugin type")
 	}
 
-	if err == nil && data != nil {
-		res = response{SUCCESS, req.UUID, data}
-	} else {
+	if err != nil {
 		res = response{FAILURE, req.UUID, err.Error()}
 	}
+	if data != nil {
+		res = response{FAILURE, req.UUID, req.Plugin.Name + " could not be found in running plugins."}
+	}
+
+	res = response{SUCCESS, req.UUID, data}
+
+	return res
+}
+
+func (assistant *Assistant) updatePlugin(req request) response {
+	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
+
+	var res response
+	var data interface{}
+	var err error
+
+	if req.Plugin.Config == nil {
+		res = response{FAILURE, req.UUID, "No config specified!"}
+		return res
+	}
+	fmt.Printf("Starting checking type of plugin\n")
+
+	switch req.Plugin.Type {
+	case "INPUT":
+		data, err = assistant.agent.UpdateInputPlugin(req.Plugin.Name, &req.Plugin.Config)
+		// plugin, err = assistant.agent.GetInputPlugin(req.Plugin.Name)
+	case "OUTPUT":
+		// TODO
+		// plugin, err = assistant.agent.GetOutputPlugin(req.Plugin.Name)
+	case "AGGREGATOR":
+		// TODO
+		// plugin, err = assistant.agent.GetAggregatorPlugin(req.Plugin.Name)
+	case "PROCESSOR":
+		// TODO
+		// plugin, err = assistant.agent.GetProcessorPlugin(req.Plugin.Name)
+	default:
+		err = fmt.Errorf("did not provide a valid plugin type")
+	}
+
+	if err != nil {
+		res = response{FAILURE, req.UUID, err.Error()}
+	}
+	if data == nil {
+		res = response{FAILURE, req.UUID, req.Plugin.Name + " could not be found in running plugins."}
+	}
+
+	res = response{SUCCESS, req.UUID, data}
 
 	return res
 }
