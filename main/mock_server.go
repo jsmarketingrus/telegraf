@@ -70,7 +70,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		var config map[string]interface{}
 		_ = json.Unmarshal([]byte(pluginConfig), &config)
 		var m = map[string]interface{}{
-			"Operation": "GET_PLUGIN",
+			"Operation": operation,
 			"Uuid":      uid.String(),
 			"Plugin": map[string]interface{}{
 				"Name":   plugin,
