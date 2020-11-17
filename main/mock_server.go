@@ -28,9 +28,9 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 	for {
 		fmt.Println("\n(0) GET_PLUGIN")
-		fmt.Println("(1) ADD_PLUGIN")
-		fmt.Println("(2) UPDATE_PLUGIN")
-		fmt.Println("(3) DELETE_PLUGIN")
+		fmt.Println("(1) START_PLUGIN")
+		fmt.Println("(2) STOP_PLUGIN")
+		fmt.Println("(3) UPDATE_PLUGIN")
 		fmt.Println("(4) GET_RUNNING_PLUGINS")
 		fmt.Println("(5) GET_ALL_PLUGINS")
 		fmt.Println("(6) GET_PLUGIN_SCHEMA")
@@ -51,11 +51,11 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		case "0":
 			operation = "GET_PLUGIN"
 		case "1":
-			operation = "ADD_PLUGIN"
+			operation = "START_PLUGIN"
 		case "2":
-			operation = "UPDATE_PLUGIN"
+			operation = "STOP_PLUGIN"
 		case "3":
-			operation = "DELETE_PLUGIN"
+			operation = "UPDATE_PLUGIN"
 		case "4":
 			operation = "GET_RUNNING_PLUGINS"
 		case "5":
