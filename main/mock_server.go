@@ -286,12 +286,19 @@ var homeTemplate = template.Must(template.New("").Parse(`
 		width:0;
 		padding: 0% 3%;
 	  }
+	  div {
+		border-radius: 4px;
+	  }
+	  pre {
+		white-space: pre-wrap;
+		word-wrap: break-word;
+	  }
     </style>
 <script>  
-window.setInterval(function() {
-	var elem = document.getElementById('output');
-	elem.scrollTop = elem.scrollHeight;
-  }, 5000);
+function setFocusOnDiv(d) {
+	const scrollIntoViewOptions = { behavior: "smooth", block: "center" };
+	d.scrollIntoView(scrollIntoViewOptions); 
+};
 window.addEventListener("load", function(evt) {
 	var ws;
 	ws = new WebSocket("{{.}}");
@@ -306,15 +313,18 @@ window.addEventListener("load", function(evt) {
 
     var printReq = function(message) {
 		var d = document.createElement("pre");
-		d.style.background = "#3f51b5";
-        d.textContent = message;
+		d.style.background = "linear-gradient(45deg,#066fc5,#00a3ff)";
+		d.width = "100%";
+		d.textContent = message;
 		output.appendChild(d);
-		output.scrollTop = d.offsetTop;
-    };
-    var printRes = function(message) {
-		var d = document.createElement("pre");
-        d.textContent = message;
-        output.appendChild(d);
+		setFocusOnDiv(d);
+		};
+		var printRes = function(message) {
+			var d = document.createElement("pre");
+			d.textContent = message;
+			// d.style["white-space"]= "pre-wrap";
+			output.appendChild(d);
+		setFocusOnDiv(d);
     };
     
     document.getElementById("requestInput").onclick = function(evt) {
