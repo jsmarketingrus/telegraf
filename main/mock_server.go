@@ -42,10 +42,13 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		pluginType, _ := reader.ReadString('\n')
 		fmt.Print("Plugin config: ")
 		pluginConfig, _ := reader.ReadString('\n')
+		fmt.Print("Plugin uid: ")
+		uniqueId, _ := reader.ReadString('\n')
 		plugin = strings.Replace(plugin, "\n", "", -1)
 		pluginType = strings.Replace(pluginType, "\n", "", -1)
 		operation = strings.Replace(operation, "\n", "", -1)
 		pluginConfig = strings.Replace(pluginConfig, "\n", "", -1)
+		uniqueId = strings.Replace(uniqueId, "\n", "", -1)
 
 		switch operation {
 		case "0":
@@ -55,7 +58,11 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		case "2":
 			operation = "STOP_PLUGIN"
 		case "3":
+<<<<<<< HEAD
 			operation = "UPDATE_PLUGIN"
+=======
+			operation = "STOP_PLUGIN"
+>>>>>>> 2a7f661aafcaf9d154f60a8b3b55352d685d4d29
 		case "4":
 			operation = "GET_RUNNING_PLUGINS"
 		case "5":
@@ -76,6 +83,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 				"Name":   plugin,
 				"Type":   pluginType,
 				"Config": config,
+				"UniqueId": uniqueId,
 			},
 		}
 		err = c.WriteJSON(m)
