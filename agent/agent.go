@@ -614,7 +614,9 @@ func (a *Agent) CreateOutput(name string) (telegraf.Output, error) {
 
 // GetRunningPlugin gets the values of a running plugin's struct.
 func (a *Agent) GetRunningPlugin(uid string) (map[string]interface{}, error) {
+	a.pluginLock.Lock()
 	obj, exists := a.runningPlugins[uid]
+	a.pluginLock.Unlock()
 	if !exists {
 		return nil, fmt.Errorf("specified plugin is not running")
 	}
