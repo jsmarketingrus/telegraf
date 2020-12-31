@@ -1348,9 +1348,6 @@ func (c *Config) addOutput(name string, table *ast.Table) error {
 
 	var uniqueId string
 	c.getFieldString(table, "unique_id", &uniqueId)
-	if uniqueId == "" {
-		return fmt.Errorf("Output %s did not have a `unique_id` field defined", name)
-	}
 	ro := models.NewRunningOutput(name, output, outputConfig,
 		c.Agent.MetricBatchSize, c.Agent.MetricBufferLimit, uniqueId)
 	c.Outputs = append(c.Outputs, ro)
@@ -1403,9 +1400,6 @@ func (c *Config) addInput(name string, table *ast.Table) error {
 
 	var uniqueId string
 	c.getFieldString(table, "unique_id", &uniqueId)
-	if uniqueId == "" {
-		return fmt.Errorf("Input %s did not have a `unique_id` field defined", name)
-	}
 	rp := models.NewRunningInput(input, pluginConfig, uniqueId)
 	rp.SetDefaultTags(c.Tags)
 	c.Inputs = append(c.Inputs, rp)
