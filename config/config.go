@@ -14,9 +14,9 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
-	"sync"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -77,7 +77,7 @@ type Config struct {
 	Processors    models.RunningProcessors
 	AggProcessors models.RunningProcessors
 
-	InputsLock *sync.Mutex
+	InputsLock  *sync.Mutex
 	OutputsLock *sync.Mutex
 }
 
