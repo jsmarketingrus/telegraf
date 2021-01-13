@@ -178,7 +178,7 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 				return
 			}
 		}
-		res := assistant.handleRequests(&req)
+		res := assistant.handleRequests(ctx, &req)
 		err = assistant.connection.WriteJSON(res)
 		if err != nil {
 			// log error and keep connection open
@@ -189,7 +189,7 @@ func (assistant *Assistant) listenToServer(ctx context.Context) {
 	}
 }
 
-func (assistant *Assistant) handleRequests(req *request) response {
+func (assistant *Assistant) handleRequests(ctx context.Context, req *request) response {
 	var res response
 	switch req.Operation {
 	case GET_PLUGIN:
@@ -197,7 +197,7 @@ func (assistant *Assistant) handleRequests(req *request) response {
 	case GET_PLUGIN_SCHEMA:
 		res = assistant.getSchema(req)
 	case START_PLUGIN:
-		res = assistant.startPlugin(req)
+		res = assistant.startPlugin(ctx, req)
 	case STOP_PLUGIN:
 		res = assistant.stopPlugin(req)
 	case UPDATE_PLUGIN:
@@ -266,7 +266,7 @@ func (assistant *Assistant) getSchema(req *request) response {
 }
 
 // startPlugin starts a single plugin
-func (assistant *Assistant) startPlugin(req *request) response {
+func (assistant *Assistant) startPlugin(ctx context.Context, req *request) response {
 	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
 
 	var res response
@@ -275,7 +275,7 @@ func (assistant *Assistant) startPlugin(req *request) response {
 
 	switch req.Plugin.Type {
 	case "INPUT":
-		uid, err = assistant.agent.StartInput(req.Plugin.Name)
+		uid, err = assistant.agent.StartInput(ctx, req.Plugin.Name)
 	case "OUTPUT":
 		uid, err = assistant.agent.StartOutput(req.Plugin.Name)
 	default:

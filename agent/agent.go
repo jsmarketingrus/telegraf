@@ -501,7 +501,7 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 // StartInput adds an input plugin with default config
-func (a *Agent) StartInput(pluginName string) (string, error) {
+func (a *Agent) StartInput(ctx context.Context, pluginName string) (string, error) {
 	inputConfig := models.InputConfig{
 		Name: pluginName,
 	}
@@ -519,7 +519,7 @@ func (a *Agent) StartInput(pluginName string) (string, error) {
 
 	ri.Init()
 
-	err = a.RunSingleInput(ri, a.Context)
+	err = a.RunSingleInput(ri, ctx)
 	if err != nil {
 		return "", err
 	}
@@ -1361,11 +1361,13 @@ func (a *Agent) runOutputs(
 
 	for metric := range unit.src {
 		for i, output := range unit.outputs {
+			a.Config.OutputsLock.Lock()
 			if i == len(a.Config.Outputs)-1 {
 				output.AddMetric(metric)
 			} else {
 				output.AddMetric(metric.Copy())
 			}
+			a.Config.OutputsLock.Unlock()
 		}
 	}
 
