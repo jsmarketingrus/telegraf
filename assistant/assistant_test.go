@@ -110,11 +110,11 @@ func TestAssistant_GetInputPluginSchema(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, isSchema)
 	assert.Equal(t, "string", s.Types["Name"])
-	assert.Equal(t, agent.ArrayFieldSchema{"string", 0}, s.Types["Servers"])
+	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Types["Servers"])
 	assert.Equal(t, "string", s.Types["Method"])
-	assert.Equal(t, agent.ArrayFieldSchema{"string", 0}, s.Types["TagKeys"])
-	assert.Equal(t, agent.MapFieldSchema{"string", "string"}, s.Types["Parameters"])
-	assert.Equal(t, agent.MapFieldSchema{"string", "string"}, s.Types["Headers"])
+	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Types["TagKeys"])
+	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Types["Parameters"])
+	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Types["Headers"])
 	assert.Equal(t, map[string]interface{}{
 		"Duration": "int64",
 	}, s.Types["ResponseTimeout"])
@@ -170,8 +170,8 @@ func TestAssistant_GetOutputPluginSchema(t *testing.T) {
 		"TLSKey":             "string",
 	}, s.Types["ClientConfig"])
 	assert.Equal(t, "string", s.Types["Method"])
-	assert.Equal(t, agent.ArrayFieldSchema{"string", 0}, s.Types["Scopes"])
-	assert.Equal(t, agent.MapFieldSchema{"string", "string"}, s.Types["Headers"])
+	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Types["Scopes"])
+	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Types["Headers"])
 	assert.Equal(t, map[string]interface{}{
 		"Duration": "int64",
 	}, s.Types["Timeout"])
