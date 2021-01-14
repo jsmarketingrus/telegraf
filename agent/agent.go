@@ -1040,25 +1040,22 @@ func stopServiceInputs(inputs []*models.RunningInput) {
 
 // StopInputPlugin stops an input plugin
 func (a *Agent) StopInputPlugin(uuid string, shouldUpdateConfig bool) error {
-
-	// NOTE: don't use `defer a.pluginLock.Unlock()` here,
-	// since we write to a channel that gatherLoop() is waiting on,
-	// and we need to maintain our invariant for gatherLoop()
-	// that it is given an unlocked mutex and returns an unlocked mutex.
-
 	a.pluginLock.Lock()
 	plugin, ok := a.runningPlugins[uuid].(*models.RunningInput)
 	a.pluginLock.Unlock()
 
 	if !ok {
-		log.Printf("E! [agent] You are trying to stop an input that is not running: %s \n", uuid)
-		return fmt.Errorf("you are trying to stop an input that is not running")
+		log.Printf("E! [agent] Input %s is not runnning.\n", uuid)
+		return fmt.Errorf("input %s is not runnning", uuid)
 	}
 
 	plugin.Stop()
 
 	if shouldUpdateConfig {
-		a.Config.UpdateConfig(map[string]interface{}{}, uuid, "inputs", "STOP_PLUGIN")
+		err := a.Config.UpdateConfig(map[string]interface{}{}, uuid, "inputs", "STOP_PLUGIN")
+		if err != nil {
+			log.Printf("W! [agent] Unable to update configuration for input plugin %s\n", uuid)
+		}
 	}
 
 	a.Config.InputsLock.Lock()
@@ -1075,26 +1072,23 @@ func (a *Agent) StopInputPlugin(uuid string, shouldUpdateConfig bool) error {
 }
 
 // StopOutputPlugin stops an output plugin
-func (a *Agent) StopOutputPlugin(uuid string, shouldUpdateConfig bool) {
-
-	// NOTE: don't use `defer a.pluginLock.Unlock()` here,
-	// since we write to a channel that gatherLoop() is waiting on,
-	// and we need to maintain our invariant for gatherLoop()
-	// that it is given an unlocked mutex and returns an unlocked mutex.
-
+func (a *Agent) StopOutputPlugin(uuid string, shouldUpdateConfig bool) error {
 	a.pluginLock.Lock()
 	plugin, ok := a.runningPlugins[uuid].(*models.RunningOutput)
 	a.pluginLock.Unlock()
 
 	if !ok {
-		log.Printf("E! [agent] You are trying to stop an output that is not running: %s \n", uuid)
-		return
+		log.Printf("E! [agent] Output %s is not runnning.\n", uuid)
+		return fmt.Errorf("output %s is not runnning", uuid)
 	}
 
 	plugin.Stop()
 
 	if shouldUpdateConfig {
-		a.Config.UpdateConfig(map[string]interface{}{}, uuid, "outputs", "STOP_PLUGIN")
+		err := a.Config.UpdateConfig(map[string]interface{}{}, uuid, "outputs", "STOP_PLUGIN")
+		if err != nil {
+			log.Printf("W! [agent] Unable to update configuration for output plugin %s\n", uuid)
+		}
 	}
 
 	a.Config.OutputsLock.Lock()
@@ -1106,6 +1100,7 @@ func (a *Agent) StopOutputPlugin(uuid string, shouldUpdateConfig bool) {
 	}
 	a.Config.OutputsLock.Unlock()
 
+	return nil
 }
 
 // gather runs an input's gather function periodically until the context is
@@ -1120,9 +1115,6 @@ func (a *Agent) gatherLoop(
 	defer panicRecover(input)
 
 	for {
-		// INVARIANT: received unlocked mutex, return unlocked mutex
-		// NOTE: Again, don't just use defer to unlock because of the ticker.Elapsed() case
-		// Be careful of changing locks here -- could easily make it sequential
 		select {
 		case <-input.ShutdownChan:
 			log.Println("I! [agent] stopping input plugin", input.Config.Name)

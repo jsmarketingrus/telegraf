@@ -322,9 +322,9 @@ func (a *Assistant) stopPlugin(req *request) (interface{}, error) {
 	var err error
 	switch req.Plugin.Type {
 	case "INPUT":
-		a.agent.StopInputPlugin(req.Plugin.UniqueId, true)
+		err = a.agent.StopInputPlugin(req.Plugin.UniqueId, true)
 	case "OUTPUT":
-		a.agent.StopOutputPlugin(req.Plugin.UniqueId, true)
+		err = a.agent.StopOutputPlugin(req.Plugin.UniqueId, true)
 	default:
 		err = fmt.Errorf("did not provide a valid plugin type")
 	}
