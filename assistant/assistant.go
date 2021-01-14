@@ -156,7 +156,7 @@ func (a *Assistant) listen(ctx context.Context) {
 				log.Printf("E! [assistant] connection could not be re-established: %s", err)
 				return
 			}
-			err = a.conn.ReadJSON(&req)
+			err = a.conn.ReadJSON(req)
 			if err != nil {
 				log.Printf("E! [assistant] re-established connection but could not read server request: %s", err)
 				return
