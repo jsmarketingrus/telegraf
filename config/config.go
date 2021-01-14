@@ -923,10 +923,10 @@ func (c *Config) serializeTable(t *ast.Table, config map[string]interface{}, f *
 	tableHeader := ""
 	if isDoubleBrackets {
 		// put "[[ ... ]]"
-		tableHeader = tabChars + "[[" + parentTableName + t.Name + "]]\n"
+		tableHeader = tabChars + "[[" + parentTableName + t.Name + "]]\r\n"
 	} else {
 		// put "[...]"
-		tableHeader = tabChars + "[" + parentTableName + t.Name + "]\n"
+		tableHeader = tabChars + "[" + parentTableName + t.Name + "]\r\n"
 	}
 
 	_, err := f.WriteString(tableHeader)
@@ -949,7 +949,7 @@ func (c *Config) serializeTable(t *ast.Table, config map[string]interface{}, f *
 			// Serialize Leaf
 			kv := val.(*ast.KeyValue)
 
-			_, err := f.WriteString(tabChars + "  " + kv.Key + "=" + kv.Value.Source() + "\n")
+			_, err := f.WriteString(tabChars + "  " + kv.Key + "=" + kv.Value.Source() + "\r\n")
 			if err != nil {
 				return fmt.Errorf("Couldn't serialize config")
 			}
@@ -964,7 +964,7 @@ func (c *Config) serializeTable(t *ast.Table, config map[string]interface{}, f *
 				return fmt.Errorf("errored while generating UUID for config serialization")
 			}
 
-			_, err = f.WriteString(tabChars + "  unique_id=\"" + uniqueId.String() + "\"\n")
+			_, err = f.WriteString(tabChars + "  unique_id=\"" + uniqueId.String() + "\"\r\n")
 			if err != nil {
 				return fmt.Errorf("Couldn't serialize config")
 			}
@@ -977,7 +977,7 @@ func (c *Config) serializeTable(t *ast.Table, config map[string]interface{}, f *
 		if err != nil {
 			return fmt.Errorf("Couldn't serialize config")
 		}
-		_, err = f.WriteString(tabChars + "  " + key + "=" + string(marshalledKey) + "\n")
+		_, err = f.WriteString(tabChars + "  " + key + "=" + string(marshalledKey) + "\r\n")
 		if err != nil {
 			return fmt.Errorf("Couldn't serialize config")
 		}
@@ -1003,7 +1003,7 @@ func (c *Config) serializeTable(t *ast.Table, config map[string]interface{}, f *
 func (c *Config) serializePlugin(pluginType string, f *os.File, newConfig map[string]interface{}) error {
 	// Serialize table header
 	pluginName := fmt.Sprintf("%v", newConfig["name"])
-	tableHeader := "[[" + pluginType + "." + pluginName + "]]\n"
+	tableHeader := "[[" + pluginType + "." + pluginName + "]]\r\n"
 	var config string
 	if pluginType == "inputs" {
 		creator := inputs.Inputs[pluginName]
@@ -1030,13 +1030,13 @@ func (c *Config) serializePlugin(pluginType string, f *os.File, newConfig map[st
 		if err != nil {
 			return fmt.Errorf("Couldn't serialize config")
 		}
-		_, err = f.WriteString("  " + key + "=" + string(marshalledKey) + "\n")
+		_, err = f.WriteString("  " + key + "=" + string(marshalledKey) + "\r\n")
 		if err != nil {
 			return fmt.Errorf("Couldn't serialize config")
 		}
 	}
 
-	_, err = f.WriteString(config + "\n")
+	_, err = f.WriteString(config + "\r\n")
 	if err != nil {
 		return fmt.Errorf("Couldn't serialize config")
 	}
@@ -1068,7 +1068,7 @@ func (c *Config) serializeConfig(data []byte, newConfigPath string, config map[s
 				return fmt.Errorf("Couldn't serialize config")
 			}
 
-			_, err = f.WriteString("\n")
+			_, err = f.WriteString("\r\n")
 			if err != nil {
 				return fmt.Errorf("Couldn't serialize config")
 			}
@@ -1087,7 +1087,7 @@ func (c *Config) serializeConfig(data []byte, newConfigPath string, config map[s
 			return fmt.Errorf("Couldn't serialize config")
 		}
 
-		_, err = f.WriteString("\n")
+		_, err = f.WriteString("\r\n")
 		if err != nil {
 			return fmt.Errorf("Couldn't serialize config")
 		}
@@ -1124,7 +1124,7 @@ func (c *Config) serializeConfig(data []byte, newConfigPath string, config map[s
 						return fmt.Errorf("Couldn't serialize config")
 					}
 
-					_, err = f.WriteString("\n")
+					_, err = f.WriteString("\r\n")
 					if err != nil {
 						return fmt.Errorf("Couldn't serialize config")
 					}
@@ -1145,7 +1145,7 @@ func (c *Config) serializeConfig(data []byte, newConfigPath string, config map[s
 							return fmt.Errorf("Couldn't serialize config")
 						}
 
-						_, err = f.WriteString("\n")
+						_, err = f.WriteString("\r\n")
 						if err != nil {
 							return fmt.Errorf("Couldn't serialize config")
 						}
