@@ -32,8 +32,6 @@ type Agent struct {
 	ou             *outputUnit
 	ic             int
 	oc             int
-	inputsChan     chan struct{}
-	outputsChan    chan struct{}
 	runningPlugins map[string]interface{}
 
 	pluginLock *sync.Mutex
@@ -50,8 +48,6 @@ func NewAgent(config *config.Config) (*Agent, error) {
 		runningPlugins: runningPlugins,
 		ic:             0,
 		oc:             0,
-		inputsChan:     make(chan struct{}),
-		outputsChan:    make(chan struct{}),
 		pluginLock:     new(sync.Mutex),
 		icLock:         new(sync.Mutex),
 		ocLock:         new(sync.Mutex),
@@ -189,8 +185,6 @@ func (a *Agent) RunSingleInput(input *models.RunningInput, ctx context.Context) 
 		a.incrementInputCount(-1)
 	}(input)
 
-	a.checkInputsChan()
-
 	a.Config.InputsLock.Lock()
 	for _, i := range a.Config.Inputs {
 		if i.UniqueId == input.UniqueId {
@@ -255,8 +249,6 @@ func (a *Agent) RunSingleOutput(output *models.RunningOutput, ctx context.Contex
 		a.incrementOutputCount(-1)
 	}(output)
 
-	a.checkOutputsChan()
-
 	a.Config.OutputsLock.Lock()
 	for _, i := range a.Config.Outputs {
 		if i.UniqueId == output.UniqueId {
@@ -282,21 +274,6 @@ func (a *Agent) incrementOutputCount(by int) {
 	a.ocLock.Unlock()
 }
 
-func (a *Agent) checkInputsChan() {
-	a.icLock.Lock()
-	if a.ic == 0 {
-		a.inputsChan <- struct{}{}
-	}
-	a.icLock.Unlock()
-}
-
-func (a *Agent) checkOutputsChan() {
-	a.ocLock.Lock()
-	if a.oc == 0 {
-		a.outputsChan <- struct{}{}
-	}
-	a.ocLock.Unlock()
-}
 
 func GetAllInputPlugins() []string {
 	var res []string
@@ -771,8 +748,6 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 		a.incrementInputCount(-1)
 	}
 
-	a.checkInputsChan()
-
 	return input.Input, nil
 }
 
@@ -803,7 +778,11 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	if len(a.Config.Outputs) == 1 {
 		a.incrementOutputCount(1)
 	}
-	a.StopOutputPlugin(uid, false)
+
+	err = a.StopOutputPlugin(uid, false)
+	if err != nil {
+		return nil, err
+	}
 
 	err = json.Unmarshal(configJSON, &output.Output)
 	if err != nil {
@@ -826,8 +805,6 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	if len(a.Config.Outputs) == 1 {
 		a.incrementOutputCount(-1)
 	}
-
-	a.checkOutputsChan()
 
 	return output.Output, nil
 }
