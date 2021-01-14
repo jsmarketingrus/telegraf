@@ -38,7 +38,7 @@ type AssistantConfig struct {
 func NewAssistantConfig() *AssistantConfig {
 	return &AssistantConfig{
 		Host: "localhost:8080",
-		Path: "/echo",
+		Path: "/assistant",
 		RetryInterval: 15,
 	}
 }
