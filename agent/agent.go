@@ -930,7 +930,7 @@ func (a *Agent) runInputs(
 
 	for {
 		select {
-		case <-a.inputsChan:
+		case <-ctx.Done():
 			log.Printf("D! [agent] Stopping service inputs")
 			stopServiceInputs(a.Config.Inputs)
 
@@ -1430,7 +1430,10 @@ func (a *Agent) runOutputs(
 	ctx, cancel := context.WithCancel(context.Background())
 
 	for _, output := range unit.outputs {
-		a.RunSingleOutput(output, ctx)
+		err := a.RunSingleOutput(output, ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	for metric := range unit.src {
@@ -1450,7 +1453,7 @@ func (a *Agent) runOutputs(
 
 	for {
 		select {
-		case <-a.outputsChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}

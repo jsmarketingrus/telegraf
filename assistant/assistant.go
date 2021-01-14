@@ -51,12 +51,6 @@ func NewAssistant(config *AssistantConfig, agent *agent.Agent) *Assistant {
 	}
 }
 
-// Stop is used to clean up active conn and all channels
-func (assistant *Assistant) Stop() {
-	assistant.running = false
-	assistant.conn.Close()
-}
-
 type pluginInfo struct {
 	Name     string
 	Type     string
