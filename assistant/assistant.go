@@ -162,7 +162,7 @@ func (a *Assistant) listen(ctx context.Context) {
 				return
 			}
 		}
-		res := a.handleRequest(req)
+		res := a.handleRequest(ctx, req)
 
 		if err := a.conn.WriteJSON(res); err != nil {
 			log.Printf("E! [assistant] Error while writing to server: %s", err)
@@ -177,7 +177,7 @@ func (a *Assistant) shutdownOnContext(ctx context.Context) {
 	a.conn.Close()
 }
 
-func (a *Assistant) handleRequest(req *request) response {
+func (a *Assistant) handleRequest(ctx context.Context, req *request) response {
 	var resp interface{}
 	var err error
 
@@ -187,7 +187,7 @@ func (a *Assistant) handleRequest(req *request) response {
 	case GET_PLUGIN_SCHEMA:
 		resp, err = a.getSchema(req)
 	case START_PLUGIN:
-		resp, err = a.startPlugin(req)
+		resp, err = a.startPlugin(ctx, req)
 	case STOP_PLUGIN:
 		resp, err = a.stopPlugin(req)
 	case UPDATE_PLUGIN:
@@ -263,17 +263,16 @@ func (a *Assistant) getSchema(req *request) (interface{}, error) {
 }
 
 // startPlugin starts a single plugin
-func (a *Assistant) startPlugin(req *request) (interface{}, error) {
+func (a *Assistant) startPlugin(ctx context.Context, req *request) (interface{}, error) {
 	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
-
 	var uid string
 	var err error
 
 	switch req.Plugin.Type {
 	case "INPUT":
-		uid, err = a.agent.StartInput(req.Plugin.Name)
+		uid, err = a.agent.StartInput(ctx, req.Plugin.Name)
 	case "OUTPUT":
-		uid, err = a.agent.StartOutput(req.Plugin.Name)
+		uid, err = a.agent.StartOutput(ctx, req.Plugin.Name)
 	default:
 		err = fmt.Errorf("invalid plugin type")
 	}

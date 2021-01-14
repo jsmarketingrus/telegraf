@@ -206,7 +206,6 @@ func (a *Agent) RunSingleInput(input *models.RunningInput, ctx context.Context) 
 
 // RunSingleOutput runs a single output and can be called after an agent is created
 func (a *Agent) RunSingleOutput(output *models.RunningOutput, ctx context.Context) error {
-
 	// NOTE: we can't just use `defer a.statusMutex.Unlock()` since except for the output validation,
 	// this function only returns once the gatherLoop is done -- i.e. when the plugin is stopped.
 	// Be careful to manually unlock the statusMutex in this function.
@@ -542,7 +541,7 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 // StartInput adds an input plugin with default config
-func (a *Agent) StartInput(pluginName string) (string, error) {
+func (a *Agent) StartInput(ctx context.Context, pluginName string) (string, error) {
 	inputConfig := models.InputConfig{
 		Name: pluginName,
 	}
@@ -563,7 +562,7 @@ func (a *Agent) StartInput(pluginName string) (string, error) {
 		return "", err
 	}
 
-	err = a.RunSingleInput(ri, a.Context)
+	err = a.RunSingleInput(ri, ctx)
 	if err != nil {
 		return "", err
 	}
@@ -579,14 +578,14 @@ func (a *Agent) StartInput(pluginName string) (string, error) {
 		uniqueId.String(), "inputs", "START_PLUGIN")
 
 	if err != nil {
-		return "", err
+		log.Printf("W! [agent] Unable to save configuration for input %s", uniqueId.String())
 	}
 
 	return uniqueId.String(), nil
 }
 
 // StartOutput adds an output plugin with default config
-func (a *Agent) StartOutput(pluginName string) (string, error) {
+func (a *Agent) StartOutput(ctx context.Context, pluginName string) (string, error) {
 	outputConfig := models.OutputConfig{
 		Name: pluginName,
 	}
@@ -604,14 +603,17 @@ func (a *Agent) StartOutput(pluginName string) (string, error) {
 	ro := models.NewRunningOutput(pluginName, output, &outputConfig,
 		a.Config.Agent.MetricBatchSize, a.Config.Agent.MetricBufferLimit, uniqueId.String())
 
-	ro.Init()
-
-	err = a.connectOutput(a.Context, ro)
+	err = ro.Init()
 	if err != nil {
 		return "", err
 	}
 
-	err = a.RunSingleOutput(ro, a.Context)
+	err = a.connectOutput(ctx, ro)
+	if err != nil {
+		return "", err
+	}
+
+	err = a.RunSingleOutput(ro, ctx)
 	if err != nil {
 		return "", err
 	}
@@ -619,8 +621,10 @@ func (a *Agent) StartOutput(pluginName string) (string, error) {
 	// add new output to outputunit
 	a.ou.outputs = append(a.ou.outputs, ro)
 
-	a.Config.UpdateConfig(map[string]interface{}{"unique_id": uniqueId.String(), "name": pluginName}, uniqueId.String(), "outputs", "START_PLUGIN")
-
+	err = a.Config.UpdateConfig(map[string]interface{}{"unique_id": uniqueId.String(), "name": pluginName}, uniqueId.String(), "outputs", "START_PLUGIN")
+	if err != nil {
+		log.Printf("W! [agent] Unable to save configuration for output %s", uniqueId.String())
+	}
 	return uniqueId.String(), nil
 }
 
