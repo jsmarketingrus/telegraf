@@ -142,8 +142,8 @@ func (a *Assistant) listen(ctx context.Context) {
 	go a.shutdownOnContext(ctx)
 
 	for {
-		var req *request
-		if err := a.conn.ReadJSON(req); err != nil {
+		var req request
+		if err := a.conn.ReadJSON(&req); err != nil {
 			if !a.running {
 				log.Printf("I! [assistant] listener shutting down...")
 				return
@@ -156,13 +156,13 @@ func (a *Assistant) listen(ctx context.Context) {
 				log.Printf("E! [assistant] connection could not be re-established: %s", err)
 				return
 			}
-			err = a.conn.ReadJSON(req)
+			err = a.conn.ReadJSON(&req)
 			if err != nil {
 				log.Printf("E! [assistant] re-established connection but could not read server request: %s", err)
 				return
 			}
 		}
-		res := a.handleRequest(ctx, req)
+		res := a.handleRequest(ctx, &req)
 
 		if err := a.conn.WriteJSON(res); err != nil {
 			log.Printf("E! [assistant] Error while writing to server: %s", err)
