@@ -30,10 +30,15 @@ type Agent struct {
 	Context        context.Context
 	iu             *inputUnit
 	ou             *outputUnit
-	wg             *sync.WaitGroup
+	ic             int
+	oc             int
+	inputsChan     chan struct{}
+	outputsChan    chan struct{}
 	runningPlugins map[string]interface{}
 
 	pluginLock *sync.Mutex
+	icLock     *sync.Mutex
+	ocLock     *sync.Mutex
 }
 
 // NewAgent returns an Agent for the given Config.
@@ -43,8 +48,13 @@ func NewAgent(config *config.Config) (*Agent, error) {
 	a := &Agent{
 		Config:         config,
 		runningPlugins: runningPlugins,
-		wg:             new(sync.WaitGroup),
+		ic:             0,
+		oc:             0,
+		inputsChan:     make(chan struct{}),
+		outputsChan:    make(chan struct{}),
 		pluginLock:     new(sync.Mutex),
+		icLock:         new(sync.Mutex),
+		ocLock:         new(sync.Mutex),
 	}
 	return a, nil
 }
@@ -172,12 +182,23 @@ func (a *Agent) RunSingleInput(input *models.RunningInput, ctx context.Context) 
 	acc := NewAccumulator(input, a.iu.dst)
 	acc.SetPrecision(getPrecision(precision, interval))
 
-	a.wg.Add(1)
+	a.icLock.Lock()
+	a.ic++
+	a.icLock.Unlock()
 	go func(input *models.RunningInput) {
 		defer ticker.Stop()
-		defer a.wg.Done()
 		a.gatherLoop(ctx, acc, input, ticker, interval)
+		a.icLock.Lock()
+		a.ic--
+		a.icLock.Unlock()
 	}(input)
+
+	a.icLock.Lock()
+	counter := a.ic
+	a.icLock.Unlock()
+	if counter == 0 {
+		a.inputsChan <- struct{}{}
+	}
 
 	a.Config.InputsLock.Lock()
 	for _, i := range a.Config.Inputs {
@@ -235,15 +256,25 @@ func (a *Agent) RunSingleOutput(output *models.RunningOutput, ctx context.Contex
 		jitter = output.Config.FlushJitter
 	}
 
-	a.wg.Add(1)
+	a.ocLock.Lock()
+	a.oc++
+	a.ocLock.Unlock()
 	go func(output *models.RunningOutput) {
-		defer a.wg.Done()
-
 		ticker := NewRollingTicker(interval, jitter)
 		defer ticker.Stop()
 
 		a.flushLoop(ctx, output, ticker)
+		a.ocLock.Lock()
+		a.oc--
+		a.ocLock.Unlock()
 	}(output)
+
+	a.ocLock.Lock()
+	counter := a.oc
+	a.ocLock.Unlock()
+	if counter == 0 {
+		a.outputsChan <- struct{}{}
+	}
 
 	a.Config.OutputsLock.Lock()
 	for _, i := range a.Config.Outputs {
@@ -694,7 +725,9 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 	}
 
 	if len(a.Config.Inputs) == 1 {
-		a.wg.Add(1)
+		a.icLock.Lock()
+		a.ic++
+		a.icLock.Unlock()
 	}
 	a.StopInputPlugin(uid, false)
 	json.Unmarshal(configJSON, &input.Input)
@@ -706,7 +739,15 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 	}
 
 	if len(a.Config.Inputs) == 1 {
-		a.wg.Done()
+		a.icLock.Lock()
+		a.ic--
+		a.icLock.Unlock()
+	}
+	a.icLock.Lock()
+	counter := a.ic
+	a.icLock.Unlock()
+	if counter == 0 {
+		a.inputsChan <- struct{}{}
 	}
 
 	return input.Input, nil
@@ -737,7 +778,9 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	}
 
 	if len(a.Config.Outputs) == 1 {
-		a.wg.Add(1)
+		a.ocLock.Lock()
+		a.oc++
+		a.ocLock.Unlock()
 	}
 	a.StopOutputPlugin(uid, false)
 	json.Unmarshal(configJSON, &output.Output)
@@ -750,7 +793,16 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	}
 
 	if len(a.Config.Outputs) == 1 {
-		a.wg.Done()
+		a.ocLock.Lock()
+		a.oc--
+		a.ocLock.Unlock()
+	}
+
+	a.ocLock.Lock()
+	counter := a.oc
+	a.ocLock.Unlock()
+	if counter == 0 {
+		a.outputsChan <- struct{}{}
 	}
 
 	return output.Output, nil
@@ -848,15 +900,18 @@ func (a *Agent) runInputs(
 	for _, input := range unit.inputs {
 		a.RunSingleInput(input, ctx)
 	}
-	a.wg.Wait()
 
-	log.Printf("D! [agent] Stopping service inputs")
-	stopServiceInputs(a.Config.Inputs)
+	for {
+		select {
+		case <-a.inputsChan:
+			log.Printf("D! [agent] Stopping service inputs")
+			stopServiceInputs(a.Config.Inputs)
 
-	close(unit.dst)
-	log.Printf("D! [agent] Input channel closed")
-
-	return nil
+			close(unit.dst)
+			log.Printf("D! [agent] Input channel closed")
+			return nil
+		}
+	}
 }
 
 // testStartInputs is a variation of startInputs for use in --test and --once
@@ -1373,9 +1428,13 @@ func (a *Agent) runOutputs(
 
 	log.Println("I! [agent] Hang on, flushing any cached metrics before shutdown")
 	cancel()
-	a.wg.Wait()
 
-	return nil
+	for {
+		select {
+		case <-a.outputsChan:
+			return nil
+		}
+	}
 }
 
 // flushLoop runs an output's flush function periodically until the context is
