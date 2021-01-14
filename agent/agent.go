@@ -182,22 +182,14 @@ func (a *Agent) RunSingleInput(input *models.RunningInput, ctx context.Context) 
 	acc := NewAccumulator(input, a.iu.dst)
 	acc.SetPrecision(getPrecision(precision, interval))
 
-	a.icLock.Lock()
-	a.ic++
-	a.icLock.Unlock()
+	a.incrementInputCount(1)
 	go func(input *models.RunningInput) {
 		defer ticker.Stop()
 		a.gatherLoop(ctx, acc, input, ticker, interval)
-		a.icLock.Lock()
-		a.ic--
-		a.icLock.Unlock()
+		a.incrementInputCount(-1)
 	}(input)
 
-	a.icLock.Lock()
-	if a.ic == 0 {
-		a.inputsChan <- struct{}{}
-	}
-	a.icLock.Unlock()
+	a.checkInputsChan()
 
 	a.Config.InputsLock.Lock()
 	for _, i := range a.Config.Inputs {
@@ -255,24 +247,16 @@ func (a *Agent) RunSingleOutput(output *models.RunningOutput, ctx context.Contex
 		jitter = output.Config.FlushJitter
 	}
 
-	a.ocLock.Lock()
-	a.oc++
-	a.ocLock.Unlock()
+	a.incrementOutputCount(1)
 	go func(output *models.RunningOutput) {
 		ticker := NewRollingTicker(interval, jitter)
 		defer ticker.Stop()
 
 		a.flushLoop(ctx, output, ticker)
-		a.ocLock.Lock()
-		a.oc--
-		a.ocLock.Unlock()
+		a.incrementOutputCount(-1)
 	}(output)
 
-	a.ocLock.Lock()
-	if a.oc == 0 {
-		a.outputsChan <- struct{}{}
-	}
-	a.ocLock.Unlock()
+	a.checkOutputsChan()
 
 	a.Config.OutputsLock.Lock()
 	for _, i := range a.Config.Outputs {
@@ -285,6 +269,34 @@ func (a *Agent) RunSingleOutput(output *models.RunningOutput, ctx context.Contex
 	a.Config.Outputs = append(a.Config.Outputs, output)
 	a.Config.OutputsLock.Unlock()
 	return nil
+}
+
+func (a *Agent) incrementInputCount(by int) {
+	a.icLock.Lock()
+	a.ic += by
+	a.icLock.Unlock()
+}
+
+func (a *Agent) incrementOutputCount(by int) {
+	a.ocLock.Lock()
+	a.oc += by
+	a.ocLock.Unlock()
+}
+
+func (a *Agent) checkInputsChan() {
+	a.icLock.Lock()
+	if a.ic == 0 {
+		a.inputsChan <- struct{}{}
+	}
+	a.icLock.Unlock()
+}
+
+func (a *Agent) checkOutputsChan() {
+	a.ocLock.Lock()
+	if a.oc == 0 {
+		a.outputsChan <- struct{}{}
+	}
+	a.ocLock.Unlock()
 }
 
 func GetAllInputPlugins() []string {
@@ -723,9 +735,7 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 	}
 
 	if len(a.Config.Inputs) == 1 {
-		a.icLock.Lock()
-		a.ic++
-		a.icLock.Unlock()
+		a.incrementInputCount(1)
 	}
 	a.StopInputPlugin(uid, false)
 	json.Unmarshal(configJSON, &input.Input)
@@ -737,15 +747,10 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 	}
 
 	if len(a.Config.Inputs) == 1 {
-		a.icLock.Lock()
-		a.ic--
-		a.icLock.Unlock()
+		a.incrementInputCount(-1)
 	}
-	a.icLock.Lock()
-	if a.ic == 0 {
-		a.inputsChan <- struct{}{}
-	}
-	a.icLock.Unlock()
+
+	a.checkInputsChan()
 
 	return input.Input, nil
 }
@@ -775,9 +780,7 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	}
 
 	if len(a.Config.Outputs) == 1 {
-		a.ocLock.Lock()
-		a.oc++
-		a.ocLock.Unlock()
+		a.incrementOutputCount(1)
 	}
 	a.StopOutputPlugin(uid, false)
 	json.Unmarshal(configJSON, &output.Output)
@@ -790,16 +793,10 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	}
 
 	if len(a.Config.Outputs) == 1 {
-		a.ocLock.Lock()
-		a.oc--
-		a.ocLock.Unlock()
+		a.incrementOutputCount(-1)
 	}
 
-	a.ocLock.Lock()
-	if a.oc == 0 {
-		a.outputsChan <- struct{}{}
-	}
-	a.ocLock.Unlock()
+	a.checkOutputsChan()
 
 	return output.Output, nil
 }
