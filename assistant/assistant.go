@@ -40,7 +40,7 @@ func (astConfig *AssistantConfig) fillDefaults() {
 		astConfig.Host = "localhost:8080"
 	}
 	if astConfig.Path == "" {
-		astConfig.Path = "/echo"
+		astConfig.Path = "/assistant"
 	}
 	if astConfig.RetryInterval == 0 {
 		astConfig.RetryInterval = 15
@@ -114,7 +114,6 @@ func (assistant *Assistant) initWebsocketConnection(ctx context.Context) error {
 	log.Printf("D! [assistant] Attempting connection to [%s]", config.Host)
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), header)
 	for err != nil { // on error, retry connection again
-		// TODO? Do we really want this in here? Consider move outside
 		log.Printf("E! [assistant] Failed to connect to [%s], retrying in %ds, "+
 			"error was '%s'", config.Host, config.RetryInterval, err)
 
