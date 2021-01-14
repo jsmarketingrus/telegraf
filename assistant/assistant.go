@@ -162,7 +162,7 @@ func (a *Assistant) listen(ctx context.Context) {
 				return
 			}
 		}
-		res := a.handleRequest(ctx, req)
+		res := a.handleRequest(req)
 
 		if err := a.conn.WriteJSON(res); err != nil {
 			log.Printf("E! [assistant] Error while writing to server: %s", err)
@@ -177,7 +177,7 @@ func (a *Assistant) shutdownOnContext(ctx context.Context) {
 	a.conn.Close()
 }
 
-func (a *Assistant) handleRequest(ctx context.Context, req *request) response {
+func (a *Assistant) handleRequest(req *request) response {
 	var resp interface{}
 	var err error
 
@@ -187,7 +187,7 @@ func (a *Assistant) handleRequest(ctx context.Context, req *request) response {
 	case GET_PLUGIN_SCHEMA:
 		resp, err = a.getSchema(req)
 	case START_PLUGIN:
-		resp, err = a.startPlugin(ctx, req)
+		resp, err = a.startPlugin(req)
 	case STOP_PLUGIN:
 		resp, err = a.stopPlugin(req)
 	case UPDATE_PLUGIN:
@@ -263,7 +263,7 @@ func (a *Assistant) getSchema(req *request) (interface{}, error) {
 }
 
 // startPlugin starts a single plugin
-func (a *Assistant) startPlugin(ctx context.Context, req *request) (interface{}, error) {
+func (a *Assistant) startPlugin(req *request) (interface{}, error) {
 	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
 
 	var uid string
@@ -271,7 +271,7 @@ func (a *Assistant) startPlugin(ctx context.Context, req *request) (interface{},
 
 	switch req.Plugin.Type {
 	case "INPUT":
-		uid, err = a.agent.StartInput(ctx, req.Plugin.Name)
+		uid, err = a.agent.StartInput(req.Plugin.Name)
 	case "OUTPUT":
 		uid, err = a.agent.StartOutput(req.Plugin.Name)
 	default:
@@ -315,7 +315,7 @@ func (a *Assistant) updatePlugin(req *request) (interface{}, error) {
 	return data, nil
 }
 
-// stopPlugin stops a single plugin
+// stopPlugin stops a single plugin given a request
 func (a *Assistant) stopPlugin(req *request) (interface{}, error) {
 	fmt.Print("D! [assistant] Received request: ", req.Operation, " for plugin ", req.Plugin.Name, "\n")
 
@@ -341,7 +341,7 @@ type runningPlugins struct {
 	Outputs []map[string]string
 }
 
-// getRunningPlugins returns a JSON response obj with all running plugins
+// getRunningPlugins returns an object with all running plugins
 func (assistant *Assistant) getRunningPlugins(req *request) (interface{}, error) {
 	runningPlugins := runningPlugins{
 		Inputs: assistant.agent.GetRunningInputPlugins(),
@@ -355,7 +355,7 @@ type availablePlugins struct {
 	Outputs []string
 }
 
-// getAllPlugins returns a JSON response obj with names of all possible plugins
+// getAllPlugins returns an object with the names of all available plugins
 func (assistant *Assistant) getAllPlugins(req *request) (interface{}, error) {
 	availablePlugins := availablePlugins{
 		Inputs: agent.GetAllInputPlugins(),

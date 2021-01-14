@@ -542,7 +542,7 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 // StartInput adds an input plugin with default config
-func (a *Agent) StartInput(ctx context.Context, pluginName string) (string, error) {
+func (a *Agent) StartInput(pluginName string) (string, error) {
 	inputConfig := models.InputConfig{
 		Name: pluginName,
 	}
@@ -558,9 +558,12 @@ func (a *Agent) StartInput(ctx context.Context, pluginName string) (string, erro
 	}
 	ri := models.NewRunningInput(input, &inputConfig, uniqueId.String())
 
-	ri.Init()
+	err = ri.Init()
+	if err != nil {
+		return "", err
+	}
 
-	err = a.RunSingleInput(ri, ctx)
+	err = a.RunSingleInput(ri, a.Context)
 	if err != nil {
 		return "", err
 	}
@@ -574,6 +577,7 @@ func (a *Agent) StartInput(ctx context.Context, pluginName string) (string, erro
 			"name":      pluginName,
 		},
 		uniqueId.String(), "inputs", "START_PLUGIN")
+
 	if err != nil {
 		return "", err
 	}
