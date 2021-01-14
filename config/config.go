@@ -1049,8 +1049,7 @@ func (c *Config) serializeConfig(data []byte, newConfigPath string, config map[s
 		return fmt.Errorf("Error parsing data: %s", err)
 	}
 
-	f, _ := os.OpenFile(newConfigPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	f.Truncate(0)
+	f, _ := os.OpenFile(newConfigPath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0600)
 	defer f.Close()
 
 	configParam := map[string]interface{}{}
