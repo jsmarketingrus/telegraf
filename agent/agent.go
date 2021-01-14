@@ -194,11 +194,10 @@ func (a *Agent) RunSingleInput(input *models.RunningInput, ctx context.Context) 
 	}(input)
 
 	a.icLock.Lock()
-	counter := a.ic
-	a.icLock.Unlock()
-	if counter == 0 {
+	if a.ic == 0 {
 		a.inputsChan <- struct{}{}
 	}
+	a.icLock.Unlock()
 
 	a.Config.InputsLock.Lock()
 	for _, i := range a.Config.Inputs {
@@ -270,11 +269,10 @@ func (a *Agent) RunSingleOutput(output *models.RunningOutput, ctx context.Contex
 	}(output)
 
 	a.ocLock.Lock()
-	counter := a.oc
-	a.ocLock.Unlock()
-	if counter == 0 {
+	if a.oc == 0 {
 		a.outputsChan <- struct{}{}
 	}
+	a.ocLock.Unlock()
 
 	a.Config.OutputsLock.Lock()
 	for _, i := range a.Config.Outputs {
@@ -744,11 +742,10 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 		a.icLock.Unlock()
 	}
 	a.icLock.Lock()
-	counter := a.ic
-	a.icLock.Unlock()
-	if counter == 0 {
+	if a.ic == 0 {
 		a.inputsChan <- struct{}{}
 	}
+	a.icLock.Unlock()
 
 	return input.Input, nil
 }
@@ -799,11 +796,10 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	}
 
 	a.ocLock.Lock()
-	counter := a.oc
-	a.ocLock.Unlock()
-	if counter == 0 {
+	if a.oc == 0 {
 		a.outputsChan <- struct{}{}
 	}
+	a.ocLock.Unlock()
 
 	return output.Output, nil
 }
