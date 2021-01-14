@@ -922,7 +922,10 @@ func (a *Agent) runInputs(
 ) error {
 
 	for _, input := range unit.inputs {
-		a.RunSingleInput(input, ctx)
+		err := a.RunSingleInput(input, ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	for {
