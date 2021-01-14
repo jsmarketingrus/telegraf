@@ -716,12 +716,12 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 	plugin, ok := a.runningPlugins[uid]
 	a.pluginLock.Unlock()
 
-	input := plugin.(*models.RunningInput)
-
 	if !ok {
 		log.Printf("E! [agent] You are trying to update an input that does not exist: %s \n", uid)
 		return nil, errors.New("you are trying to update an input that does not exist")
 	}
+
+	input := plugin.(*models.RunningInput)
 
 	// This code creates a copy of the struct and see if JSON Unmarshal works without errors
 	configJSON, err := validateStructConfig(reflect.ValueOf(input.Input), config)
@@ -737,10 +737,23 @@ func (a *Agent) UpdateInputPlugin(uid string, config map[string]interface{}) (te
 	if len(a.Config.Inputs) == 1 {
 		a.incrementInputCount(1)
 	}
-	a.StopInputPlugin(uid, false)
-	json.Unmarshal(configJSON, &input.Input)
+
+	err = a.StopInputPlugin(uid, false)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(configJSON, &input.Input)
+	if err != nil {
+		return nil, err
+	}
+
 	ri := models.NewRunningInput(input.Input, input.Config, input.UniqueId)
-	a.RunSingleInput(ri, a.Context)
+	err = a.RunSingleInput(ri, a.Context)
+	if err != nil {
+		return nil, err
+	}
+
 	err = a.Config.UpdateConfig(tomlMap, input.UniqueId, "inputs", "UPDATE_PLUGIN")
 	if err != nil {
 		return nil, fmt.Errorf("could not update input plugin %s with error: %s", uid, err)
@@ -761,12 +774,12 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 	plugin, ok := a.runningPlugins[uid]
 	a.pluginLock.Unlock()
 
-	output := plugin.(*models.RunningOutput)
-
 	if !ok {
 		log.Printf("E! [agent] You are trying to update an output that does not exist: %s \n", uid)
 		return nil, errors.New("you are trying to update an output that does not exist")
 	}
+
+	output := plugin.(*models.RunningOutput)
 
 	// This code creates a copy of the struct and see if JSON Unmarshal works without errors
 	configJSON, err := validateStructConfig(reflect.ValueOf(output.Output), config)
@@ -783,10 +796,20 @@ func (a *Agent) UpdateOutputPlugin(uid string, config map[string]interface{}) (t
 		a.incrementOutputCount(1)
 	}
 	a.StopOutputPlugin(uid, false)
-	json.Unmarshal(configJSON, &output.Output)
+
+	err = json.Unmarshal(configJSON, &output.Output)
+	if err != nil {
+		return nil, err
+	}
+
 	ro := models.NewRunningOutput(output.Config.Name, output.Output, output.Config,
 		a.Config.Agent.MetricBatchSize, a.Config.Agent.MetricBufferLimit, output.UniqueId)
-	a.RunSingleOutput(ro, a.Context)
+
+	err = a.RunSingleOutput(ro, a.Context)
+	if err != nil {
+		return nil, err
+	}
+
 	err = a.Config.UpdateConfig(tomlMap, output.UniqueId, "outputs", "UPDATE_PLUGIN")
 	if err != nil {
 		return nil, fmt.Errorf("could not update output plugin %s with error: %s", uid, err)

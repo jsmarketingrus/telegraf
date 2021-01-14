@@ -51,7 +51,7 @@ func (ast *Assistant) getPluginID(name string) string {
 
 	allRes := ast.handleRequest(context.TODO(), &getAllReq)
 
-	pluginsWithID, _ := allRes.Data.(pluginsWithIdList)
+	pluginsWithID, _ := allRes.Data.(runningPlugins)
 
 	for _, in := range pluginsWithID.Inputs {
 		if in["name"] == name {
@@ -73,7 +73,7 @@ func (ast *Assistant) getAllPluginsID(name string) []string {
 
 	allRes := ast.handleRequest(context.TODO(), &getAllReq)
 
-	pluginsWithID, _ := allRes.Data.(pluginsWithIdList)
+	pluginsWithID, _ := allRes.Data.(runningPlugins)
 
 	res := []string{}
 
@@ -100,7 +100,7 @@ func TestAssistant_GetInputPluginSchema(t *testing.T) {
 	res := ast.handleRequest(ctx, &req)
 	assert.Equal(t, SUCCESS, res.Status)
 
-	s, isSchema := res.Data.(schema)
+	s, isSchema := res.Data.(pluginSchema)
 	_, err = json.Marshal(res)
 	if err != nil {
 		t.Log(err)
@@ -109,15 +109,15 @@ func TestAssistant_GetInputPluginSchema(t *testing.T) {
 	// test s.Types
 	assert.NoError(t, err)
 	assert.True(t, isSchema)
-	assert.Equal(t, "string", s.Types["Name"])
-	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Types["Servers"])
-	assert.Equal(t, "string", s.Types["Method"])
-	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Types["TagKeys"])
-	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Types["Parameters"])
-	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Types["Headers"])
+	assert.Equal(t, "string", s.Schema["Name"])
+	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Schema["Servers"])
+	assert.Equal(t, "string", s.Schema["Method"])
+	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Schema["TagKeys"])
+	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Schema["Parameters"])
+	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Schema["Headers"])
 	assert.Equal(t, map[string]interface{}{
 		"Duration": "int64",
-	}, s.Types["ResponseTimeout"])
+	}, s.Schema["ResponseTimeout"])
 	// test s.Defaults
 	dur, _ := time.ParseDuration("5s")
 	assert.Equal(t, map[string]interface{}{
@@ -129,7 +129,7 @@ func TestAssistant_GetInputPluginSchema(t *testing.T) {
 	res = ast.handleRequest(ctx, &req)
 	assert.Equal(t, SUCCESS, res.Status)
 
-	s, isSchema = res.Data.(schema)
+	s, isSchema = res.Data.(pluginSchema)
 	_, err = json.Marshal(res)
 	if err != nil {
 		t.Log(err)
@@ -148,10 +148,11 @@ func TestAssistant_GetOutputPluginSchema(t *testing.T) {
 	_, ast := initAgentAndAssistant(ctx, "slice_comment", t)
 
 	req, err := buildRequest(GET_PLUGIN_SCHEMA, pluginInfo{"http", "OUTPUT", nil, ""})
-	res := ast.getSchema(&req)
-	assert.Equal(t, SUCCESS, res.Status)
+	assert.Nil(t, err)
+	res, err := ast.getSchema(&req)
+	assert.Nil(t, err)
 
-	s, isSchema := res.Data.(schema)
+	s, isSchema := res.(pluginSchema)
 	_, err = json.Marshal(res)
 	if err != nil {
 		t.Log(err)
@@ -168,23 +169,23 @@ func TestAssistant_GetOutputPluginSchema(t *testing.T) {
 		"TLSCA":              "string",
 		"TLSCert":            "string",
 		"TLSKey":             "string",
-	}, s.Types["ClientConfig"])
-	assert.Equal(t, "string", s.Types["Method"])
-	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Types["Scopes"])
-	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Types["Headers"])
+	}, s.Schema["ClientConfig"])
+	assert.Equal(t, "string", s.Schema["Method"])
+	assert.Equal(t, agent.ArrayFieldSchema{Value: "string", Length: 0}, s.Schema["Scopes"])
+	assert.Equal(t, agent.MapFieldSchema{Value: "string", Key: "string"}, s.Schema["Headers"])
 	assert.Equal(t, map[string]interface{}{
 		"Duration": "int64",
-	}, s.Types["Timeout"])
+	}, s.Schema["Timeout"])
 
 	assert.Equal(t, "http://127.0.0.1:8080/telegraf", s.Defaults["URL"])
 	assert.Equal(t, "POST", s.Defaults["Method"])
 
 	// test application_insights, empty map of length 2
 	req, err = buildRequest(GET_PLUGIN_SCHEMA, pluginInfo{"application_insights", "OUTPUT", nil, ""})
-	res = ast.handleRequest(ctx, &req)
-	assert.Equal(t, SUCCESS, res.Status)
+	resp := ast.handleRequest(ctx, &req)
+	assert.Equal(t, SUCCESS, resp.Status)
 
-	s, isSchema = res.Data.(schema)
+	s, isSchema = resp.Data.(pluginSchema)
 	_, err = json.Marshal(res)
 	if err != nil {
 		t.Log(err)
@@ -205,10 +206,10 @@ func TestAssistant_GetOutputPluginSchema(t *testing.T) {
 
 	// test cloudwatch (empty defaults)
 	req, err = buildRequest(GET_PLUGIN_SCHEMA, pluginInfo{"cloudwatch", "OUTPUT", nil, ""})
-	res = ast.handleRequest(ctx, &req)
-	assert.Equal(t, SUCCESS, res.Status)
+	resp = ast.handleRequest(ctx, &req)
+	assert.Equal(t, SUCCESS, resp.Status)
 
-	s, isSchema = res.Data.(schema)
+	s, isSchema = resp.Data.(pluginSchema)
 	_, err = json.Marshal(res)
 	if err != nil {
 		t.Log(err)
@@ -229,7 +230,7 @@ func TestAssistant_GetInputPlugin(t *testing.T) {
 	assert.NotEmpty(t, memcachedID)
 
 	req, err := buildRequest(GET_PLUGIN, pluginInfo{"", "", nil, memcachedID})
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 	res := ast.handleRequest(ctx, &req)
 	assert.Equal(t, SUCCESS, res.Status)
 	memcachedMap, dataIsMap := res.Data.(map[string]interface{})
@@ -247,7 +248,7 @@ func TestAssistant_GetOutputPlugin(t *testing.T) {
 	influxdbID := ast.getPluginID("influxdb")
 	assert.NotEmpty(t, influxdbID)
 	req2, err2 := buildRequest(GET_PLUGIN, pluginInfo{"", "", nil, influxdbID})
-	assert.NoError(t, err2)
+	assert.Nil(t, err2)
 	res2 := ast.handleRequest(ctx, &req2)
 	assert.Equal(t, SUCCESS, res2.Status)
 	_, dataIsMap := res2.Data.(map[string]interface{})
@@ -265,9 +266,9 @@ func TestAssistant_ValidatePluginToMap(t *testing.T) {
 		res := ast.handleRequest(ctx, &req)
 		assert.Equal(t, SUCCESS, res.Status)
 
-		schema, resIsSchema := res.Data.(schema)
+		schema, resIsSchema := res.Data.(pluginSchema)
 		assert.True(t, resIsSchema)
-		assert.NotNil(t, schema.Types)
+		assert.NotNil(t, schema.Schema)
 		assert.NotNil(t, schema.Defaults)
 	}
 
@@ -276,9 +277,9 @@ func TestAssistant_ValidatePluginToMap(t *testing.T) {
 		res := ast.handleRequest(ctx, &req)
 		assert.Equal(t, SUCCESS, res.Status)
 
-		schema, resIsSchema := res.Data.(schema)
+		schema, resIsSchema := res.Data.(pluginSchema)
 		assert.True(t, resIsSchema)
-		assert.NotNil(t, schema.Types)
+		assert.NotNil(t, schema.Schema)
 		assert.NotNil(t, schema.Defaults)
 	}
 
@@ -420,7 +421,7 @@ func TestAssistant_GetAllPlugins(t *testing.T) {
 	res := ast.handleRequest(ctx, &getReq)
 	assert.Equal(t, SUCCESS, res.Status)
 
-	pList, ok := res.Data.(pluginsList)
+	pList, ok := res.Data.(availablePlugins)
 	assert.True(t, ok)
 	assert.Equal(t, len(inputs.Inputs), len(pList.Inputs))
 
@@ -433,7 +434,7 @@ func TestAssistant_GetAllRunningPlugins(t *testing.T) {
 
 	getReq := request{GET_RUNNING_PLUGINS, "000", pluginInfo{"", "", nil, ""}}
 	res := ast.handleRequest(ctx, &getReq)
-	pList, ok := res.Data.(pluginsWithIdList)
+	pList, ok := res.Data.(runningPlugins)
 
 	assert.True(t, ok)
 	assert.Equal(t, 1, len(pList.Inputs))
@@ -470,7 +471,7 @@ func TestAssistant_MultiIDIntegrationTest(t *testing.T) {
 	getAllRunningReq, _ := buildRequest(GET_RUNNING_PLUGINS, pluginInfo{})
 	allRunningRes := ast.handleRequest(ctx, &getAllRunningReq)
 	assert.Equal(t, SUCCESS, allRunningRes.Status)
-	pList, ok := allRunningRes.Data.(pluginsWithIdList)
+	pList, ok := allRunningRes.Data.(runningPlugins)
 	assert.True(t, ok)
 	assert.Equal(t, 2, len(pList.Inputs))
 	assert.Equal(t, 3, len(pList.Outputs))
@@ -479,12 +480,12 @@ func TestAssistant_MultiIDIntegrationTest(t *testing.T) {
 	startMemcachedReq, _ := buildRequest(START_PLUGIN, pluginInfo{"memcached", "INPUT", nil, ""})
 	startMemcachedRes := ast.handleRequest(ctx, &startMemcachedReq)
 	assert.Equal(t, SUCCESS, startMemcachedRes.Status)
-	memcachedID, ok := startMemcachedRes.Data.(string)
+	memcachedID, ok := startMemcachedRes.Data.(map[string]string)
 	assert.True(t, ok)
-	assert.Equal(t, ast.getPluginID("memcached"), memcachedID)
+	assert.Equal(t, ast.getPluginID("memcached"), memcachedID["id"])
 
 	// Step 3: User regrets her decision, and stops the memcached input.
-	stopMemcachedReq, _ := buildRequest(STOP_PLUGIN, pluginInfo{"", "INPUT", nil, memcachedID})
+	stopMemcachedReq, _ := buildRequest(STOP_PLUGIN, pluginInfo{"", "INPUT", nil, memcachedID["id"]})
 	stopMemcachedRes := ast.handleRequest(ctx, &stopMemcachedReq)
 	assert.Equal(t, SUCCESS, stopMemcachedRes.Status)
 	assert.Equal(t, "", ast.getPluginID("memcached"))
@@ -493,13 +494,13 @@ func TestAssistant_MultiIDIntegrationTest(t *testing.T) {
 	startIDBReq, _ := buildRequest(START_PLUGIN, pluginInfo{"influxdb", "OUTPUT", nil, ""})
 	startIDBRes := ast.handleRequest(ctx, &startIDBReq)
 	assert.Equal(t, SUCCESS, startIDBRes.Status)
-	idbID, ok := startIDBRes.Data.(string)
+	idbID, ok := startIDBRes.Data.(map[string]string)
 	assert.True(t, ok)
 	assert.Equal(t, 3, len(ast.getAllPluginsID("influxdb")))
-	assert.Contains(t, ast.getAllPluginsID("influxdb"), idbID)
+	assert.Contains(t, ast.getAllPluginsID("influxdb"), idbID["id"])
 
 	// Step 5: User regrets their decision, and stops the influxdb output.
-	stopIDBReq, _ := buildRequest(STOP_PLUGIN, pluginInfo{"", "OUTPUT", nil, idbID})
+	stopIDBReq, _ := buildRequest(STOP_PLUGIN, pluginInfo{"", "OUTPUT", nil, idbID["id"]})
 	stopIDBRes := ast.handleRequest(ctx, &stopIDBReq)
 	assert.Equal(t, SUCCESS, stopIDBRes.Status)
 	assert.Equal(t, 2, len(ast.getAllPluginsID("influxdb")))
@@ -509,10 +510,10 @@ func TestAssistant_MultiIDIntegrationTest(t *testing.T) {
 	startIDBReq2, _ := buildRequest(START_PLUGIN, pluginInfo{"influxdb", "OUTPUT", nil, ""})
 	startIDBRes2 := ast.handleRequest(ctx, &startIDBReq2)
 	assert.Equal(t, SUCCESS, startIDBRes2.Status)
-	idbID2, ok := startIDBRes2.Data.(string)
+	idbID2, ok := startIDBRes2.Data.(map[string]string)
 	assert.True(t, ok)
 	assert.Equal(t, 3, len(ast.getAllPluginsID("influxdb")))
-	assert.Contains(t, ast.getAllPluginsID("influxdb"), idbID2)
+	assert.Contains(t, ast.getAllPluginsID("influxdb"), idbID2["id"])
 	assert.NotEqual(t, idbID, idbID2)
 
 	// Step 7 Prep: Get the influxdb output with Database = "telegraf" for next test
@@ -539,11 +540,11 @@ func TestAssistant_MultiIDIntegrationTest(t *testing.T) {
 		"Database": "telegraf",
 	}
 
-	updateIDBReq1, _ := buildRequest(UPDATE_PLUGIN, pluginInfo{"influxdb", "OUTPUT", desiredIDBSettings, idbID2})
+	updateIDBReq1, _ := buildRequest(UPDATE_PLUGIN, pluginInfo{"influxdb", "OUTPUT", desiredIDBSettings, idbID2["id"]})
 	updateIDBRes1 := ast.handleRequest(ctx, &updateIDBReq1)
 	assert.Equal(t, SUCCESS, updateIDBRes1.Status)
 
-	getIDBReq1, _ := buildRequest(GET_PLUGIN, pluginInfo{"", "", nil, idbID2})
+	getIDBReq1, _ := buildRequest(GET_PLUGIN, pluginInfo{"", "", nil, idbID2["id"]})
 	getIDBRes1 := ast.handleRequest(ctx, &getIDBReq1)
 	idbMap, ok := getIDBRes1.Data.(map[string]interface{})
 	assert.True(t, ok)
@@ -557,11 +558,11 @@ func TestAssistant_MultiIDIntegrationTest(t *testing.T) {
 		"Database": "udp-telegraf",
 	}
 
-	updateIDBReq2, _ := buildRequest(UPDATE_PLUGIN, pluginInfo{"influxdb", "OUTPUT", desiredIDBSettings2, idbID2})
+	updateIDBReq2, _ := buildRequest(UPDATE_PLUGIN, pluginInfo{"influxdb", "OUTPUT", desiredIDBSettings2, idbID2["id"]})
 	updateIDBRes2 := ast.handleRequest(ctx, &updateIDBReq2)
 	assert.Equal(t, SUCCESS, updateIDBRes2.Status)
 
-	getIDBReq2, _ := buildRequest(GET_PLUGIN, pluginInfo{"", "", nil, idbID2})
+	getIDBReq2, _ := buildRequest(GET_PLUGIN, pluginInfo{"", "", nil, idbID2["id"]})
 	getIDBRes2 := ast.handleRequest(ctx, &getIDBReq2)
 	idbMap2, ok := getIDBRes2.Data.(map[string]interface{})
 	assert.True(t, ok)
