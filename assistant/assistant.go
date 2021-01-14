@@ -139,8 +139,6 @@ func (a *Assistant) Run(ctx context.Context) error {
 func (a *Assistant) listen(ctx context.Context) {
 	defer a.conn.Close()
 
-	go a.shutdownOnContext(ctx)
-
 	for {
 		var req request
 		if err := a.conn.ReadJSON(&req); err != nil {
@@ -171,8 +169,7 @@ func (a *Assistant) listen(ctx context.Context) {
 	}
 }
 
-func (a *Assistant) shutdownOnContext(ctx context.Context) {
-	<-ctx.Done()
+func (a *Assistant) Shutdown() {
 	a.running = false
 	a.conn.Close()
 }
