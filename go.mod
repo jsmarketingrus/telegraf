@@ -60,8 +60,8 @@ require (
 	github.com/gofrs/uuid v2.1.0+incompatible
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d
 	github.com/golang/geo v0.0.0-20190916061304-5b978397cfec
-	github.com/golang/protobuf v1.3.5
-	github.com/golang/snappy v0.0.1
+	github.com/golang/protobuf v1.4.2
+	github.com/golang/snappy v0.0.3
 	github.com/google/go-cmp v0.5.2
 	github.com/google/go-github/v32 v32.1.0
 	github.com/google/uuid v1.1.2
@@ -98,8 +98,8 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/multiplay/go-ts3 v1.0.0
 	github.com/naoina/go-stringutil v0.1.0 // indirect
-	github.com/nats-io/nats-server/v2 v2.1.4
-	github.com/nats-io/nats.go v1.9.1
+	github.com/nats-io/nats-server/v2 v2.7.2
+	github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d
 	github.com/newrelic/newrelic-telemetry-sdk-go v0.2.0
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/openconfig/gnmi v0.0.0-20180912164834-33a1865c3029
@@ -139,11 +139,11 @@ require (
 	go.starlark.net v0.0.0-20200901195727-6e684ef5eeee
 	golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
-	golang.org/x/text v0.3.3
+	golang.org/x/sys v0.0.0-20220111092808-5a964db01320
+	golang.org/x/text v0.3.6
 	golang.org/x/tools v0.0.0-20200317043434-63da46f3035e // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200205215550-e35592f146e4
 	gonum.org/v1/gonum v0.6.2 // indirect
